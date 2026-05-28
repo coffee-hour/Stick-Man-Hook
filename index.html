@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏴‍☠️</text></svg>">
-    <title>Grand Line Hook - Advanced Physics</title>
+    <title>Infinite Stickman Hook - Grand Line Edition</title>
     <style>
         body {
             margin: 0;
-            background: #111;
+            background: #1a1a2e;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
             overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: sans-serif;
             color: white;
             user-select: none;
         }
@@ -23,7 +23,7 @@
             display: flex;
             gap: 20px;
             align-items: flex-start;
-            max-width: 1000px;
+            max-width: 1100px;
             width: 100%;
             padding: 20px;
             box-sizing: border-box;
@@ -37,14 +37,81 @@
             flex: 1;
         }
         
+        #sidebar {
+            width: 260px;
+            background: rgba(22, 36, 71, 0.9);
+            border: 1px solid #1f4068;
+            border-radius: 8px;
+            padding: 15px;
+            box-sizing: border-box;
+            height: 700px;
+            display: flex;
+            flex-direction: column;
+        }
+        #sidebar h3 {
+            margin: 0 0 15px 0;
+            color: #f9a826;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 18px;
+            text-align: center;
+            border-bottom: 2px solid #1f4068;
+            padding-bottom: 8px;
+        }
+        #leaderboardList {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        #leaderboardList::-webkit-scrollbar { width: 6px; }
+        #leaderboardList::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 4px; }
+        #leaderboardList::-webkit-scrollbar-thumb { background: #f9a826; border-radius: 4px; }
+
+        .leaderboard-item {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #1f4068;
+            font-size: 14px;
+        }
+        .leaderboard-rank { font-weight: bold; color: #00adb5; margin-right: 5px; }
+        .leaderboard-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .leaderboard-score { color: #4ecca3; font-weight: bold; }
+
+        #authContainer {
+            background: rgba(22, 36, 71, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #1f4068;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: space-between;
+        }
+        .auth-input { padding: 8px; border-radius: 4px; border: 1px solid #1a1a2e; background: #1a1a2e; color: white; width: 110px; }
+        .auth-btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+        .auth-btn:hover { opacity: 0.8; }
+        #loginBtn { background: #4ecca3; color: #1a1a2e; }
+        #registerBtn { background: #00adb5; color: #fff; }
+        #welcomeMessage { display: none; font-weight: bold; color: #4ecca3; font-size: 16px; }
+        #authInputs { display: flex; gap: 10px; }
+
         canvas {
-            background: #1a2a40;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            background: #162447;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             border-radius: 8px;
             cursor: crosshair;
             width: 100%;
             max-width: 800px;
-            border: 2px solid #2c3e50;
+            border: 2px solid #1f4068;
         }
         
         #ui {
@@ -52,17 +119,18 @@
             gap: 15px;
             font-size: 15px;
             font-weight: bold;
-            background: #1e272e;
+            background: rgba(26, 26, 46, 0.9);
             padding: 10px 20px;
-            border-radius: 8px;
-            border: 2px solid #2c3e50;
+            border-radius: 20px;
+            border: 1px solid #1f4068;
             align-items: center;
             width: 100%;
             box-sizing: border-box;
             justify-content: space-between;
         }
-        .score-val { color: #0be881; }
-        .high-val { color: #ffa801; }
+        .score-val { color: #4ecca3; }
+        .high-val { color: #f9a826; }
+        .skin-val { color: #00adb5; text-transform: capitalize; }
         
         #shardDisplay { display: flex; gap: 15px; align-items: center; }
         .shard-counter { display: flex; align-items: center; gap: 5px; }
@@ -70,66 +138,100 @@
         .icon-white { background: #fff; box-shadow: 0 0 5px #fff; }
         .icon-black { background: #000; border-color: #fff; box-shadow: 0 0 5px #ff3838; }
 
-        #shop-panel {
-            background: #1e272e;
-            border: 2px solid #2c3e50;
+        #bottom-panels {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .panel-box {
+            background: rgba(22, 36, 71, 0.8);
+            border: 1px solid #1f4068;
             border-radius: 8px;
             padding: 15px;
-            width: 100%;
             box-sizing: border-box;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
         }
         
-        #shop-panel h3 {
+        #changingRoom { flex: 1.5; }
+        #pirateBazaar { flex: 1; }
+        
+        .panel-box h3 {
             margin: 0 0 10px 0;
-            font-size: 16px;
-            color: #0fbcf9;
+            font-size: 14px;
+            color: #00adb5;
             text-transform: uppercase;
             letter-spacing: 1px;
-            border-bottom: 2px solid #2c3e50;
+            border-bottom: 1px solid #1f4068;
             padding-bottom: 5px;
         }
         
         .skins-grid {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
+            align-items: flex-start;
+            max-height: 120px; 
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .skins-grid::-webkit-scrollbar { width: 8px; }
+        .skins-grid::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 4px; }
+        .skins-grid::-webkit-scrollbar-thumb { background: #00adb5; border-radius: 4px; }
+
+        /* Changing Room Styles */
+        .skin-btn {
+            background: #1a1a2e; border: 2px solid #1f4068; color: #888;
+            padding: 6px 10px; border-radius: 6px; cursor: not-allowed;
+            font-size: 11px; font-weight: bold; display: flex; flex-direction: column;
+            align-items: center; gap: 4px; min-width: 80px; transition: all 0.2s; position: relative;
+        }
+        .skin-btn.unlocked { border-color: #4ecca3; color: #fff; cursor: pointer; }
+        .skin-btn.unlocked:hover { background: #1f4068; transform: translateY(-2px); }
+        .skin-btn.equipped { border-color: #f9a826; background: #232342; color: #f9a826; }
+        .skin-btn.sub-skin { border-style: dashed; background: #162447; transform: scale(0.95); }
+        .skin-preview { width: 14px; height: 14px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,0.2); }
+        .ability-text { font-size: 9px; color: #ffeb3b; text-align: center; line-height: 1.1; margin-top: 2px;}
+
+        .dropdown-arrow {
+            position: absolute; top: -8px; right: -8px; background: #f9a826; color: #1a1a2e;
+            border-radius: 50%; width: 18px; height: 18px; font-size: 10px; display: flex;
+            justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 10;
         }
 
-        .skin-card {
-            background: #2d3436;
-            border: 2px solid #636e72;
-            padding: 10px;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            width: 140px;
-            transition: all 0.2s;
+        #fuseBtn {
+            position: absolute; top: 10px; right: 15px;
+            background: linear-gradient(90deg, #ffffff 50%, #000000 50%);
+            color: #1a1a2e; border: 2px solid #f9a826; padding: 5px 10px; font-size: 11px;
+            border-radius: 6px; font-weight: bold; cursor: pointer; display: none;
+            text-shadow: 0px 0px 4px #fff; box-shadow: 0 0 10px #f9a826; animation: pulse 1.5s infinite;
         }
-        .skin-card.unlocked { border-color: #0be881; }
-        .skin-card.equipped { border-color: #ffa801; background: #353b48; box-shadow: 0 0 10px rgba(255, 168, 1, 0.3); }
-        
-        .skin-preview { 
-            width: 20px; height: 20px; border-radius: 50%; 
-            border: 2px solid rgba(255,255,255,0.5); 
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* Pirate Bazaar Styles */
+        .pirate-card {
+            background: #1a1a2e; border: 1px solid #1f4068; padding: 6px;
+            border-radius: 6px; display: flex; flex-direction: column; align-items: center;
+            gap: 4px; width: 110px; transition: all 0.2s;
         }
+        .pirate-card.unlocked { border-color: #4ecca3; }
+        .pirate-card.equipped { border-color: #f9a826; background: #232342; }
         
-        .skin-name { font-size: 13px; font-weight: bold; text-align: center; color: #fff;}
-        .skin-ability { font-size: 10px; color: #0fbcf9; text-align: center; height: 24px;}
+        .pirate-name { font-size: 11px; font-weight: bold; text-align: center; color: #fff;}
+        .pirate-ability { font-size: 9px; color: #4bcffa; text-align: center; height: 20px;}
         
         .buy-btn {
-            background: #4bcffa; color: #1e272e; border: none; padding: 5px 10px;
-            border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px;
-            width: 100%; display: flex; justify-content: center; gap: 5px; align-items: center;
+            background: #4bcffa; color: #1a1a2e; border: none; padding: 4px 6px;
+            border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 10px;
+            width: 100%; display: flex; justify-content: center; gap: 3px; align-items: center;
         }
         .buy-btn:hover { background: #0fbcf9; }
-        .buy-btn:disabled { background: #636e72; color: #b2bec3; cursor: not-allowed; }
+        .buy-btn:disabled { background: #333; color: #888; cursor: not-allowed; }
         .equip-btn {
-            background: #0be881; color: #1e272e; border: none; padding: 5px 10px;
-            border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 11px; width: 100%;
+            background: #4ecca3; color: #1a1a2e; border: none; padding: 4px;
+            border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 10px; width: 100%;
         }
-        .equipped-text { font-size: 11px; color: #ffa801; font-weight: bold; padding: 5px 0; }
 
     </style>
 </head>
@@ -137,16 +239,28 @@
 
     <div id="main-layout">
         <div id="game-container">
+            <div id="authContainer">
+                <div>☁️ Cloud Save</div>
+                <div id="authInputs">
+                    <input type="text" id="usernameInput" class="auth-input" placeholder="Username">
+                    <input type="password" id="passwordInput" class="auth-input" placeholder="Password">
+                    <button id="loginBtn" class="auth-btn">Login</button>
+                    <button id="registerBtn" class="auth-btn">Register</button>
+                </div>
+                <div id="welcomeMessage"></div>
+            </div>
+
             <div id="ui">
                 <div>Score: <span id="scoreDisplay" class="score-val">0</span></div>
-                <div>High Score: <span id="highScoreDisplay" class="high-val">0</span></div>
+                <div>High: <span id="highScoreDisplay" class="high-val">0</span></div>
+                <div>Skin: <span id="skinDisplay" class="skin-val">Default</span></div>
                 <div id="shardDisplay">
                     <div class="shard-counter">
-                        <div class="shard-icon icon-white"></div>
+                        <div class="shard-icon icon-white" title="White Shards"></div>
                         <span id="whiteShardDisplay">0</span>
                     </div>
                     <div class="shard-counter">
-                        <div class="shard-icon icon-black"></div>
+                        <div class="shard-icon icon-black" title="Black Shards"></div>
                         <span id="blackShardDisplay">0</span>
                     </div>
                 </div>
@@ -154,111 +268,226 @@
 
             <canvas id="gameCanvas" width="800" height="420"></canvas>
 
-            <div id="shop-panel">
-                <h3>🏴‍☠️ Pirate Bazaar</h3>
-                <div class="skins-grid" id="skinsGrid"></div>
+            <div id="bottom-panels">
+                <div id="changingRoom" class="panel-box">
+                    <h3>👕 Changing Room</h3>
+                    <button id="fuseBtn">FUSE?</button>
+                    <div class="skins-grid" id="skinsGrid"></div>
+                </div>
+
+                <div id="pirateBazaar" class="panel-box">
+                    <h3>🏴‍☠️ Pirate Bazaar</h3>
+                    <div class="skins-grid" id="bazaarGrid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="sidebar">
+            <h3>🏆 Leaderboard</h3>
+            <div id="leaderboardList">
+                <div style="text-align: center; color: #666; margin-top: 20px;">Loading scores...</div>
             </div>
         </div>
     </div>
 
     <script>
+        const API_URL = "https://swingworker.xaviersgames.workers.dev";
+        let currentUser = null;
+        let currentPassword = null;
+        let unlockedSkinsArray = JSON.parse(localStorage.getItem("stickman_unlocked_skins")) || ["default"];
+
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         
-        // --- Persistence & Economy ---
-        let highScore = parseInt(localStorage.getItem("op_high_score")) || 0;
-        let whiteShards = parseInt(localStorage.getItem("op_white_shards")) || 0;
-        let blackShards = parseInt(localStorage.getItem("op_black_shards")) || 0;
-        let equippedSkin = localStorage.getItem("op_equipped_skin") || "default";
-        let unlockedSkins = JSON.parse(localStorage.getItem("op_unlocked_skins")) || ["default"];
+        let highScore = parseInt(localStorage.getItem("stickman_high_score")) || 0;
+        let whiteShards = parseInt(localStorage.getItem("stickman_white_shards")) || 0;
+        let blackShards = parseInt(localStorage.getItem("stickman_black_shards")) || 0;
+        let equippedSkin = localStorage.getItem("stickman_equipped_skin") || "default";
+
+        let angelicDropdownOpen = false; let devilDropdownOpen = false;
 
         document.getElementById("highScoreDisplay").textContent = highScore;
         
         function saveLocalData() {
-            localStorage.setItem("op_high_score", highScore);
-            localStorage.setItem("op_white_shards", whiteShards);
-            localStorage.setItem("op_black_shards", blackShards);
-            localStorage.setItem("op_equipped_skin", equippedSkin);
-            localStorage.setItem("op_unlocked_skins", JSON.stringify(unlockedSkins));
+            localStorage.setItem("stickman_high_score", highScore);
+            localStorage.setItem("stickman_white_shards", whiteShards);
+            localStorage.setItem("stickman_black_shards", blackShards);
+            localStorage.setItem("stickman_equipped_skin", equippedSkin);
+            localStorage.setItem("stickman_unlocked_skins", JSON.stringify(unlockedSkinsArray));
             updateUI();
         }
 
         function updateUI() {
             document.getElementById("whiteShardDisplay").textContent = whiteShards;
             document.getElementById("blackShardDisplay").textContent = blackShards;
+            let currentConf = SKINS_CONFIG[equippedSkin] || OP_SKINS[equippedSkin] || SKINS_CONFIG.default;
+            document.getElementById("skinDisplay").textContent = currentConf.name;
+            document.getElementById("skinDisplay").style.color = currentConf.color;
+            
+            // Show fuse button if you have at least 1 white and 1 black shard
+            const fuseBtn = document.getElementById("fuseBtn");
+            if (whiteShards >= 1 && blackShards >= 1) {
+                fuseBtn.style.display = "block";
+                fuseBtn.onclick = () => {
+                    if (whiteShards >= 1 && blackShards >= 1) {
+                        whiteShards--; blackShards--;
+                        if (!unlockedSkinsArray.includes("yin_yang")) { unlockedSkinsArray.push("yin_yang"); equippedSkin = "yin_yang"; }
+                        saveLocalData(); renderChangingRoom(); renderBazaar(); applySkinAbilities();
+                    }
+                };
+            } else { fuseBtn.style.display = "none"; }
         }
-        updateUI();
 
-        // --- Skins & Abilities ---
+        // --- SKINS DATABASES ---
         const SKINS_CONFIG = {
-            default: { name: "Rookie Pirate", color: "#cccccc", cost: { white: 0, black: 0 }, ability: "None" },
-            luffy: { name: "Straw Hat", color: "#ff3838", cost: { white: 50, black: 2 }, ability: "Rubber Reach" },
-            zoro: { name: "Pirate Hunter", color: "#0be881", cost: { white: 100, black: 5 }, ability: "Heavy Slash" },
-            sanji: { name: "Black Leg", color: "#0fbcf9", cost: { white: 150, black: 10 }, ability: "Sky Walk" },
-            nami: { name: "Cat Burglar", color: "#ffa801", cost: { white: 200, black: 15 }, ability: "Treasure Magnet" },
-            law: { name: "Surgeon of Death", color: "#ffffff", splitColor: "#1e272e", cost: { white: 500, black: 50 }, ability: "Room (Gravity+Reach)" }
+            og_stickman: { name: "Exquisite OG", color: "#ff00ff", condition: "First 10 Players", ability: "Looking Dapper" },
+            default: { name: "Default", color: "#00adb5" },
+            brown: { name: "Brown", color: "#8b4513", score: 100, ability: "+ Hook Range" },
+            green: { name: "Green", color: "#00ff00", score: 500, ability: "+ Bounce" },
+            pink: { name: "Pink", color: "#ffc0cb", score: 1000, ability: "Low Gravity" },
+            blue: { name: "Blue", color: "#0000ff", score: 5000, ability: "Slippery" },
+            red: { name: "Red", color: "#ff0000", score: 7000, ability: "Heavy Momentum" },
+            orange: { name: "Orange", color: "#ffa500", score: 10000 },
+            yellow: { name: "Yellow", color: "#ffff00", score: 20000 },
+            gold: { name: "Gold", color: "#d4af37", score: 100000 },
+            
+            angelic: { name: "Angelic Dev", color: "#ffffff", condition: "Secret Code" },
+            denied_angel: { name: "Denied Angel", color: "#ffffff", condition: "???", parent: "angelic" },
+            accurate_angel: { name: "Accurate Angel", color: "#ffffff", condition: "???", parent: "angelic" },
+            exalted_angel: { name: "Exalted Angel", color: "#ffffff", condition: "???", parent: "angelic" },
+            
+            devil: { name: "Devil", color: "#ff0055", condition: "???" }, 
+            denied_devil: { name: "Denied Devil", color: "#ff0055", condition: "???", parent: "devil" },
+            accurate_devil: { name: "Accurate Devil", color: "#d4af37", condition: "???", parent: "devil" },
+            exalted_devil: { name: "Exalted Devil", color: "#ff0055", condition: "???", parent: "devil" },
+
+            yin_yang: { name: "Yin Yang", color: "#ffffff", splitColor: "#000000", condition: "FUSED" },
+            split_fire_ice: { name: "Fire & Ice", color: "#ff4500", splitColor: "#00ced1", condition: "Gacha Roll" },
+            split_toxic_bio: { name: "Toxic Bio", color: "#32cd32", splitColor: "#8a2be2", condition: "Gacha Roll" },
         };
 
-        const skinsGrid = document.getElementById("skinsGrid");
+        const OP_SKINS = {
+            luffy: { name: "Straw Hat", color: "#ff3838", cost: { white: 15, black: 0 }, ability: "Rubber Reach" },
+            zoro: { name: "Pirate Hunter", color: "#0be881", cost: { white: 30, black: 1 }, ability: "Heavy Slash" },
+            sanji: { name: "Black Leg", color: "#0fbcf9", cost: { white: 50, black: 2 }, ability: "Sky Walk" },
+            nami: { name: "Cat Burglar", color: "#ffa801", cost: { white: 75, black: 3 }, ability: "Shard Magnet" },
+            law: { name: "Surgeon of Death", color: "#ffffff", splitColor: "#1e272e", cost: { white: 100, black: 5 }, ability: "Room (Gravity+Reach)" }
+        };
 
-        function renderShop() {
+        // --- CLOUDFLARE API STUBS ---
+        async function fetchLeaderboard() {
+            try {
+                const res = await fetch(`${API_URL}/api/leaderboard`);
+                const data = await res.json();
+                if (data.success) {
+                    const leaderboardList = document.getElementById("leaderboardList");
+                    leaderboardList.innerHTML = "";
+                    if (data.leaderboard.length === 0) return leaderboardList.innerHTML = '<div style="text-align: center; color: #666; margin-top: 20px;">No scores yet!</div>';
+                    data.leaderboard.forEach((row, index) => {
+                        const item = document.createElement("div"); item.className = "leaderboard-item";
+                        if(currentUser && row.username === currentUser) { item.style.borderColor = "#4ecca3"; item.style.background = "#232342"; }
+                        item.innerHTML = `<div><span class="leaderboard-rank">#${index + 1}</span><span class="leaderboard-name">${row.username}</span></div><span class="leaderboard-score">${row.score}</span>`;
+                        leaderboardList.appendChild(item);
+                    });
+                }
+            } catch (e) { document.getElementById("leaderboardList").innerHTML = '<div style="text-align: center; color: #ff0055; margin-top: 20px;">Offline Mode.</div>'; }
+        }
+        fetchLeaderboard();
+
+        // --- RENDER MENUS ---
+        function checkUnlockStatus(key) {
+            if (key === "default") return true;
+            if (unlockedSkinsArray.includes(key)) return true; 
+            if (SKINS_CONFIG[key] && SKINS_CONFIG[key].score !== undefined) return highScore >= SKINS_CONFIG[key].score;
+            return false;
+        }
+
+        function renderChangingRoom() {
+            const skinsGrid = document.getElementById("skinsGrid");
             skinsGrid.innerHTML = "";
+
             Object.keys(SKINS_CONFIG).forEach(key => {
                 const skin = SKINS_CONFIG[key];
-                const isUnlocked = unlockedSkins.includes(key);
+                if (skin.parent === "angelic" && !angelicDropdownOpen) return;
+                if (skin.parent === "devil" && !devilDropdownOpen) return;
+
+                const isUnlocked = checkUnlockStatus(key); const isEquipped = equippedSkin === key;
+                const btn = document.createElement("button");
+                btn.className = `skin-btn ${isUnlocked ? 'unlocked' : ''} ${isEquipped ? 'equipped' : ''}`;
+                if (skin.parent) btn.classList.add("sub-skin");
+                
+                const preview = document.createElement("span"); preview.className = "skin-preview";
+                if (skin.splitColor) preview.style.background = `linear-gradient(90deg, ${skin.color} 50%, ${skin.splitColor} 50%)`;
+                else preview.style.backgroundColor = skin.color;
+                btn.appendChild(preview);
+                
+                const nameLabel = document.createElement("span"); nameLabel.textContent = skin.name; btn.appendChild(nameLabel);
+                
+                const infoLabel = document.createElement("span"); infoLabel.style.fontSize = "9px"; infoLabel.style.color = "#666";
+                if (skin.score !== undefined) infoLabel.textContent = `Score: ${skin.score}`;
+                else if (skin.condition) infoLabel.textContent = skin.condition;
+                btn.appendChild(infoLabel);
+
+                if (skin.ability) {
+                    const abLabel = document.createElement("span"); abLabel.className = "ability-text";
+                    abLabel.textContent = skin.ability; btn.appendChild(abLabel);
+                }
+
+                if (isUnlocked) {
+                    btn.onclick = () => { equippedSkin = key; applySkinAbilities(); saveLocalData(); renderChangingRoom(); renderBazaar(); };
+                }
+                skinsGrid.appendChild(btn);
+            });
+            updateUI();
+        }
+
+        function renderBazaar() {
+            const bazaarGrid = document.getElementById("bazaarGrid");
+            bazaarGrid.innerHTML = "";
+            
+            Object.keys(OP_SKINS).forEach(key => {
+                const skin = OP_SKINS[key];
+                const isUnlocked = unlockedSkinsArray.includes(key);
                 const isEquipped = equippedSkin === key;
 
                 const card = document.createElement("div");
-                card.className = `skin-card ${isUnlocked ? 'unlocked' : ''} ${isEquipped ? 'equipped' : ''}`;
+                card.className = `pirate-card ${isUnlocked ? 'unlocked' : ''} ${isEquipped ? 'equipped' : ''}`;
                 
-                const preview = document.createElement("div");
-                preview.className = "skin-preview";
-                if (skin.splitColor) {
-                    preview.style.background = `linear-gradient(90deg, ${skin.color} 50%, ${skin.splitColor} 50%)`;
-                } else {
-                    preview.style.backgroundColor = skin.color;
-                }
+                const preview = document.createElement("div"); preview.className = "skin-preview";
+                if (skin.splitColor) preview.style.background = `linear-gradient(90deg, ${skin.color} 50%, ${skin.splitColor} 50%)`;
+                else preview.style.backgroundColor = skin.color;
                 
                 card.innerHTML = `
-                    <div class="skin-name">${skin.name}</div>
-                    <div class="skin-ability">${skin.ability}</div>
+                    <div class="pirate-name">${skin.name}</div>
+                    <div class="pirate-ability">${skin.ability}</div>
                 `;
                 card.insertBefore(preview, card.firstChild);
 
                 if (isEquipped) {
-                    const status = document.createElement("div");
-                    status.className = "equipped-text"; status.textContent = "EQUIPPED";
-                    card.appendChild(status);
+                    const status = document.createElement("div"); status.style.fontSize = "10px"; status.style.color = "#f9a826"; status.textContent = "EQUIPPED"; card.appendChild(status);
                 } else if (isUnlocked) {
-                    const btn = document.createElement("button");
-                    btn.className = "equip-btn"; btn.textContent = "EQUIP";
-                    btn.onclick = () => { equippedSkin = key; applySkinAbilities(); saveLocalData(); renderShop(); };
+                    const btn = document.createElement("button"); btn.className = "equip-btn"; btn.textContent = "EQUIP";
+                    btn.onclick = () => { equippedSkin = key; applySkinAbilities(); saveLocalData(); renderChangingRoom(); renderBazaar(); };
                     card.appendChild(btn);
                 } else {
-                    const btn = document.createElement("button");
-                    btn.className = "buy-btn";
-                    btn.innerHTML = `<div class="shard-icon icon-white" style="width:8px;height:8px;"></div>${skin.cost.white} &nbsp; <div class="shard-icon icon-black" style="width:8px;height:8px;"></div>${skin.cost.black}`;
+                    const btn = document.createElement("button"); btn.className = "buy-btn";
+                    btn.innerHTML = `<div class="shard-icon icon-white" style="width:8px;height:8px;"></div>${skin.cost.white} <div class="shard-icon icon-black" style="width:8px;height:8px;"></div>${skin.cost.black}`;
                     
-                    if (whiteShards < skin.cost.white || blackShards < skin.cost.black) {
-                        btn.disabled = true;
-                    } else {
+                    if (whiteShards < skin.cost.white || blackShards < skin.cost.black) { btn.disabled = true; } 
+                    else {
                         btn.onclick = () => {
-                            whiteShards -= skin.cost.white;
-                            blackShards -= skin.cost.black;
-                            unlockedSkins.push(key);
-                            equippedSkin = key;
-                            applySkinAbilities();
-                            saveLocalData();
-                            renderShop();
+                            whiteShards -= skin.cost.white; blackShards -= skin.cost.black;
+                            unlockedSkinsArray.push(key); equippedSkin = key;
+                            applySkinAbilities(); saveLocalData(); renderChangingRoom(); renderBazaar();
                         };
                     }
                     card.appendChild(btn);
                 }
-                skinsGrid.appendChild(card);
+                bazaarGrid.appendChild(card);
             });
         }
 
-        // --- Physics Engine & Game State ---
+        // --- ADVANCED PHYSICS ENGINE ---
         const BASE_GRAVITY = 0.45; 
         const BASE_FRICTION = 0.995; 
         const BASE_HOOK_RANGE = 350; 
@@ -271,18 +500,23 @@
         let momentumBoost = 0.05;
 
         function applySkinAbilities() {
-            currentGravity = BASE_GRAVITY;
-            currentFriction = BASE_FRICTION;
-            maxHookRange = BASE_HOOK_RANGE;
-            bounceMultiplier = 1;
-            magnetRadius = 0;
-            momentumBoost = 0.05;
+            currentGravity = BASE_GRAVITY; currentFriction = BASE_FRICTION;
+            maxHookRange = BASE_HOOK_RANGE; bounceMultiplier = 1;
+            magnetRadius = 0; momentumBoost = 0.05;
 
+            // Color Abilities
+            if (equippedSkin === "pink") currentGravity = 0.32;
+            if (equippedSkin === "red") momentumBoost = 0.12; 
+            if (equippedSkin === "blue") currentFriction = 0.9995; 
+            if (equippedSkin === "brown") maxHookRange += 60;
+            if (equippedSkin === "green") bounceMultiplier = 1.3;
+
+            // One Piece Abilities
             if (equippedSkin === "luffy") maxHookRange += 75;
-            if (equippedSkin === "zoro") momentumBoost = 0.12; 
+            if (equippedSkin === "zoro") momentumBoost = 0.14; 
             if (equippedSkin === "sanji") bounceMultiplier = 1.6;
-            if (equippedSkin === "nami") magnetRadius = 120;
-            if (equippedSkin === "law") { currentGravity = 0.3; maxHookRange += 50; magnetRadius = 60; }
+            if (equippedSkin === "nami") magnetRadius = 150;
+            if (equippedSkin === "law") { currentGravity = 0.3; maxHookRange += 50; magnetRadius = 80; }
         }
 
         let player = { x: 100, y: 200, vx: 8, vy: 0, radius: 12, isSwinging: false, hookedTo: null, ropeLength: 0 };
@@ -299,19 +533,17 @@
                 let nextY = Math.floor(Math.random() * 180) + 50; 
                 hooks.push({ x: nextX, y: nextY });
 
-                // Spawn Pads
                 if (Math.random() < 0.3) bouncers.push({ type: "horizontal", x: nextX - 50, y: 400, width: 80, height: 12 });
                 
-                // Spawn Shards
-                if (Math.random() < 0.6) {
+                // Spawn Shards (Unlimited currency in the sky)
+                if (Math.random() < 0.5) {
                     let shardY = nextY + (Math.random() * 150 - 20);
-                    let type = Math.random() < 0.15 ? 'black' : 'white'; // 15% chance for black shard
+                    let type = Math.random() < 0.1 ? 'black' : 'white'; // 10% chance for black
                     shards.push({ x: nextX + 60, y: shardY, type: type, collected: false });
                 }
                 lastHook = hooks[hooks.length - 1];
             }
 
-            // Cleanup behind camera
             hooks = hooks.filter(h => h.x > cameraX - 100); 
             bouncers = bouncers.filter(b => b.x > cameraX - 100); 
             shards = shards.filter(s => s.x > cameraX - 100 && !s.collected);
@@ -321,10 +553,7 @@
             let closest = null; let minDist = Infinity;
             hooks.forEach(h => {
                 let dx = h.x - player.x; let dy = h.y - player.y; let dist = Math.sqrt(dx*dx + dy*dy);
-                // Prefer hooks slightly in front and within range
-                if (dist < minDist && h.x > player.x - 20 && dist < maxHookRange) {
-                    minDist = dist; closest = h;
-                }
+                if (dist < minDist && h.x > player.x - 20 && dist < maxHookRange) { minDist = dist; closest = h; }
             });
             targetHook = closest;
         }
@@ -333,8 +562,7 @@
             player.x = 100; player.y = 200; player.vx = 8; player.vy = 0; player.isSwinging = false; player.hookedTo = null;
             hooks = []; bouncers = []; shards = []; score = 0; 
             document.getElementById("scoreDisplay").textContent = 0; 
-            spawnEnvironment(); 
-            gameStatus = "playing";
+            spawnEnvironment(); gameStatus = "playing";
         }
 
         // Controls
@@ -342,8 +570,7 @@
             if (gameStatus === "lost") { resetGame(); return; }
             if (targetHook && !player.isSwinging) {
                 let dx = targetHook.x - player.x; let dy = targetHook.y - player.y;
-                player.isSwinging = true; player.hookedTo = targetHook; 
-                player.ropeLength = Math.sqrt(dx * dx + dy * dy);
+                player.isSwinging = true; player.hookedTo = targetHook; player.ropeLength = Math.sqrt(dx * dx + dy * dy);
             }
         }
         function endSwing() { player.isSwinging = false; player.hookedTo = null; }
@@ -354,67 +581,38 @@
         window.addEventListener("keydown", (e) => { if (e.code === "Space") { e.preventDefault(); startSwing(); } });
         window.addEventListener("keyup", (e) => { if (e.code === "Space") endSwing(); });
 
-        // Physics Loop
         function update() {
             if (gameStatus === "lost") return;
             
-            // Apply Gravity & Friction
-            player.vy += currentGravity; 
-            player.vx *= currentFriction; 
-            player.vy *= currentFriction; 
-            
-            player.x += player.vx; 
-            player.y += player.vy;
+            player.vy += currentGravity; player.vx *= currentFriction; player.vy *= currentFriction; 
+            player.x += player.vx; player.y += player.vy;
 
             spawnEnvironment();
             if (!player.isSwinging) findTarget();
 
-            // ADVANCED PHYSICS: Tangent Velocity Projection
+            // Tangent Velocity Projection
             if (player.isSwinging && player.hookedTo) {
-                let h = player.hookedTo;
-                let dx = player.x - h.x;
-                let dy = player.y - h.y;
-                let dist = Math.sqrt(dx * dx + dy * dy);
-
+                let h = player.hookedTo; let dx = player.x - h.x; let dy = player.y - h.y; let dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > player.ropeLength) {
-                    // Constrain Position to arc
-                    player.x = h.x + (dx / dist) * player.ropeLength;
-                    player.y = h.y + (dy / dist) * player.ropeLength;
-
-                    // Get normal vector (pointing away from hook)
-                    let nx = dx / dist;
-                    let ny = dy / dist;
-
-                    // Calculate velocity component moving away from hook (dot product)
-                    let vDotN = player.vx * nx + player.vy * ny;
-                    
-                    // Kill outward velocity to maintain circular path
-                    if (vDotN > 0) {
-                        player.vx -= vDotN * nx;
-                        player.vy -= vDotN * ny;
-                    }
-                    
-                    // Artificial Swing Momentum Injection
-                    let tangentX = -ny; let tangentY = nx;
-                    let speedTangent = player.vx * tangentX + player.vy * tangentY;
+                    player.x = h.x + (dx / dist) * player.ropeLength; player.y = h.y + (dy / dist) * player.ropeLength;
+                    let nx = dx / dist; let ny = dy / dist; let vDotN = player.vx * nx + player.vy * ny;
+                    if (vDotN > 0) { player.vx -= vDotN * nx; player.vy -= vDotN * ny; }
+                    let tangentX = -ny; let tangentY = nx; let speedTangent = player.vx * tangentX + player.vy * tangentY;
                     player.vx += tangentX * momentumBoost * Math.sign(speedTangent);
                 }
             }
 
-            // Bouncers
             bouncers.forEach(pad => {
                 let px = Math.max(pad.x, Math.min(player.x, pad.x + pad.width));
                 let py = Math.max(pad.y, Math.min(player.y, pad.y + pad.height));
                 let dx = player.x - px; let dy = player.y - py;
                 if ((dx * dx + dy * dy) < (player.radius * player.radius)) {
-                    player.y = pad.y - player.radius; 
-                    player.vy = -Math.max(Math.abs(player.vy) * 1.2, 12) * bounceMultiplier; 
-                    player.vx *= 1.1;
+                    player.y = pad.y - player.radius; player.vy = -Math.max(Math.abs(player.vy) * 1.2, 12) * bounceMultiplier; player.vx *= 1.1;
                     player.isSwinging = false; player.hookedTo = null;
                 }
             });
 
-            // Shards Collection
+            // Shards Collection (Affected by Nami/Law Magnet)
             shards.forEach(s => {
                 if (s.collected) return;
                 let dx = player.x - s.x; let dy = player.y - s.y; let dist = Math.sqrt(dx*dx + dy*dy);
@@ -422,31 +620,25 @@
                 if (magnetRadius > 0 && dist < magnetRadius && dist > player.radius) {
                     s.x += dx * 0.15; s.y += dy * 0.15; 
                 }
-                
                 if (dist < player.radius + 10) {
-                    s.collected = true;
-                    if (s.type === 'white') whiteShards++; else blackShards++;
-                    updateUI();
+                    s.collected = true; if (s.type === 'white') whiteShards++; else blackShards++;
+                    updateUI(); renderBazaar();
                 }
             });
 
             cameraX = player.x - 250;
-            score = Math.floor(player.x / 10) - 10; 
-            document.getElementById("scoreDisplay").textContent = score;
+            score = Math.floor(player.x / 10) - 10; document.getElementById("scoreDisplay").textContent = score;
 
-            // Death Condition
             if (player.y > canvas.height + 200) {
                 gameStatus = "lost"; 
-                if (score > highScore) { highScore = score; document.getElementById("highScoreDisplay").textContent = highScore; }
-                saveLocalData(); renderShop();
+                if (score > highScore) { highScore = score; document.getElementById("highScoreDisplay").textContent = highScore; fetchLeaderboard(); }
+                saveLocalData();
             }
         }
 
-        // Render Loop
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Grid Background
             ctx.save(); ctx.translate(-cameraX, 0); 
             ctx.strokeStyle = "rgba(44, 62, 80, 0.5)"; ctx.lineWidth = 1;
             let startGridX = Math.floor(cameraX / 100) * 100;
@@ -454,80 +646,78 @@
                 ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); 
             }
             
-            // Draw Bouncers
             bouncers.forEach(pad => {
                 ctx.fillStyle = "#ff4757"; ctx.fillRect(pad.x, pad.y, pad.width, pad.height);
                 ctx.fillStyle = "#ffa502"; ctx.fillRect(pad.x + 4, pad.y + 2, pad.width - 8, 4);
             });
 
-            // Draw Hooks
             hooks.forEach(h => {
                 let isTarget = (h === targetHook && !player.isSwinging);
-                ctx.fillStyle = isTarget ? "#0be881" : "#747d8c";
+                ctx.fillStyle = isTarget ? "#4ecca3" : "#747d8c";
                 ctx.beginPath(); ctx.arc(h.x, h.y, 6, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = isTarget ? "rgba(11, 232, 129, 0.6)" : "rgba(116, 125, 140, 0.3)"; 
+                ctx.strokeStyle = isTarget ? "rgba(78, 204, 163, 0.6)" : "rgba(116, 125, 140, 0.3)"; 
                 ctx.lineWidth = isTarget ? 3 : 1;
                 ctx.beginPath(); ctx.arc(h.x, h.y, 14, 0, Math.PI * 2); ctx.stroke();
                 
                 if (isTarget && !player.isSwinging) {
-                    ctx.strokeStyle = "rgba(11, 232, 129, 0.1)";
+                    ctx.strokeStyle = "rgba(78, 204, 163, 0.1)";
                     ctx.beginPath(); ctx.arc(player.x, player.y, maxHookRange, 0, Math.PI*2); ctx.stroke();
                 }
             });
 
-            // Draw Rope
             if (player.isSwinging && player.hookedTo) {
                 ctx.strokeStyle = "rgba(255, 255, 255, 0.8)"; ctx.lineWidth = 2.5; 
                 ctx.beginPath(); ctx.moveTo(player.hookedTo.x, player.hookedTo.y); ctx.lineTo(player.x, player.y); ctx.stroke();
             }
 
-            // Draw Shards
             shards.forEach(s => {
                 if (s.collected) return;
-                ctx.fillStyle = s.type === 'white' ? "#ffffff" : "#111111";
+                ctx.fillStyle = s.type === 'white' ? "#ffffff" : "#000000";
                 ctx.strokeStyle = s.type === 'white' ? "#cccccc" : "#ff3838";
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.moveTo(s.x, s.y - 6); ctx.lineTo(s.x + 6, s.y); ctx.lineTo(s.x, s.y + 6); ctx.lineTo(s.x - 6, s.y); ctx.closePath();
                 ctx.fill(); ctx.stroke();
             });
 
-            // Draw Player
-            let skinInfo = SKINS_CONFIG[equippedSkin] || SKINS_CONFIG.default;
+            let skinInfo = SKINS_CONFIG[equippedSkin] || OP_SKINS[equippedSkin] || SKINS_CONFIG.default;
+            if (equippedSkin === "og_stickman") { ctx.shadowColor = "#ff00ff"; ctx.shadowBlur = 15; }
+            
             if (skinInfo.splitColor) {
                 let grad = ctx.createLinearGradient(player.x - player.radius, player.y, player.x + player.radius, player.y);
-                grad.addColorStop(0, skinInfo.color); grad.addColorStop(1, skinInfo.splitColor);
-                ctx.fillStyle = grad;
-            } else {
-                ctx.fillStyle = skinInfo.color;
-            }
+                grad.addColorStop(0, skinInfo.color); grad.addColorStop(1, skinInfo.splitColor); ctx.fillStyle = grad;
+            } else { ctx.fillStyle = skinInfo.color; }
             
             ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
-            
-            // Law's Room Effect (Visual only)
+            ctx.shadowBlur = 0;
+
+            if (equippedSkin === "og_stickman") {
+                ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(player.x + 5, player.y - 3, 4, 0, Math.PI*2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(player.x + 9, player.y - 3); ctx.lineTo(player.x + 14, player.y + 4); ctx.stroke();
+                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x - 6, player.y + 3); ctx.lineTo(player.x - 6, player.y + 9); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x + 6, player.y + 3); ctx.lineTo(player.x + 6, player.y + 9); ctx.fill();
+                ctx.fillStyle = "#111"; ctx.fillRect(player.x - 10, player.y - 12, 20, 2); ctx.fillRect(player.x - 6, player.y - 24, 12, 12);
+                ctx.fillStyle = "#FFD700"; ctx.fillRect(player.x - 6, player.y - 15, 12, 3);
+            }
+
             if (equippedSkin === "law" && player.isSwinging) {
-                ctx.strokeStyle = "rgba(0, 206, 209, 0.3)"; ctx.lineWidth = 2;
-                ctx.beginPath(); ctx.arc(player.x, player.y, 60, 0, Math.PI*2); ctx.stroke();
+                ctx.strokeStyle = "rgba(0, 206, 209, 0.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(player.x, player.y, 80, 0, Math.PI*2); ctx.stroke();
             }
 
             ctx.restore();
 
             if (gameStatus === "lost") {
-                ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#ff4757"; ctx.font = "bold 40px sans-serif"; ctx.textAlign = "center";
+                ctx.fillStyle = "rgba(15, 15, 26, 0.85)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#e94560"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center";
                 ctx.fillText("WIPED OUT", canvas.width / 2, canvas.height / 2 - 20);
                 ctx.font = "20px sans-serif"; ctx.fillStyle = "#fff";
                 ctx.fillText(`Distance: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
-                ctx.fillStyle = "#a4b0be"; ctx.font = "16px sans-serif";
+                ctx.fillStyle = "#888"; ctx.font = "16px sans-serif";
                 ctx.fillText("Press Space or Click to try again", canvas.width / 2, canvas.height / 2 + 60);
             }
         }
 
-        applySkinAbilities();
-        renderShop();
-        spawnEnvironment();
-        
-        function loop() { update(); draw(); requestAnimationFrame(loop); }
-        loop();
+        applySkinAbilities(); renderChangingRoom(); renderBazaar(); spawnEnvironment();
+        function loop() { update(); draw(); requestAnimationFrame(loop); } loop();
     </script>
 </body>
 </html>
