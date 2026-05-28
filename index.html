@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Infinite Stickman Hook - Exalted Edition</title>
+    <title>Swing!</title>
     <style>
         body {
             margin: 0;
             background: #1a1a2e;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
@@ -18,14 +17,87 @@
             color: white;
             user-select: none;
         }
+        
+        /* Master Layout Grid */
+        #main-layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            max-width: 1100px;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
         #game-container {
-            position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 15px;
+            flex: 1;
         }
         
+        /* Sidebar Styling with Custom Scrollbar */
+        #sidebar {
+            width: 260px;
+            background: rgba(22, 36, 71, 0.9);
+            border: 1px solid #1f4068;
+            border-radius: 8px;
+            padding: 15px;
+            box-sizing: border-box;
+            height: 595px; /* Matches height of canvas + UI panels */
+            display: flex;
+            flex-direction: column;
+        }
+        #sidebar h3 {
+            margin: 0 0 15px 0;
+            color: #f9a826;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 18px;
+            text-align: center;
+            border-bottom: 2px solid #1f4068;
+            padding-bottom: 8px;
+        }
+        #leaderboardList {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        /* Custom scrollbar for the leaderboard container */
+        #leaderboardList::-webkit-scrollbar { width: 6px; }
+        #leaderboardList::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 4px; }
+        #leaderboardList::-webkit-scrollbar-thumb { background: #f9a826; border-radius: 4px; }
+
+        .leaderboard-item {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #1f4068;
+            font-size: 14px;
+        }
+        .leaderboard-rank {
+            font-weight: bold;
+            color: #00adb5;
+            margin-right: 5px;
+        }
+        .leaderboard-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .leaderboard-score {
+            color: #4ecca3;
+            font-weight: bold;
+        }
+
         /* Auth Panel Styles */
         #authContainer {
             background: rgba(22, 36, 71, 0.9);
@@ -35,7 +107,7 @@
             display: flex;
             gap: 10px;
             align-items: center;
-            width: 770px;
+            width: 100%;
             box-sizing: border-box;
             justify-content: space-between;
         }
@@ -46,6 +118,7 @@
             background: #1a1a2e;
             color: white;
             font-family: inherit;
+            width: 110px;
         }
         .auth-btn {
             padding: 8px 15px;
@@ -71,17 +144,22 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             border-radius: 8px;
             cursor: pointer;
+            width: 100%;
+            max-width: 800px;
         }
         #ui {
             display: flex;
-            gap: 30px;
-            font-size: 18px;
+            gap: 20px;
+            font-size: 16px;
             font-weight: bold;
             background: rgba(26, 26, 46, 0.9);
             padding: 10px 20px;
             border-radius: 20px;
             border: 1px solid #1f4068;
             align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: space-between;
         }
         .score-val { color: #4ecca3; }
         .high-val { color: #f9a826; }
@@ -113,7 +191,7 @@
             border: 1px solid #1f4068;
             border-radius: 8px;
             padding: 15px;
-            width: 770px;
+            width: 100%;
             box-sizing: border-box;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             position: relative;
@@ -131,7 +209,7 @@
             flex-wrap: wrap;
             gap: 10px;
             align-items: flex-start;
-            max-height: 180px; 
+            max-height: 120px; 
             overflow-y: auto;
             padding-right: 5px;
         }
@@ -226,36 +304,46 @@
 </head>
 <body>
 
-    <div id="game-container">
+    <div id="main-layout">
         
-        <div id="authContainer">
-            <div>☁️ Cloud Save</div>
-            <div id="authInputs">
-                <input type="text" id="usernameInput" class="auth-input" placeholder="Username">
-                <input type="password" id="passwordInput" class="auth-input" placeholder="Password">
-                <button id="loginBtn" class="auth-btn">Login</button>
-                <button id="registerBtn" class="auth-btn">Register</button>
+        <div id="game-container">
+            <div id="authContainer">
+                <div>☁️ Cloud Save</div>
+                <div id="authInputs">
+                    <input type="text" id="usernameInput" class="auth-input" placeholder="Username">
+                    <input type="password" id="passwordInput" class="auth-input" placeholder="Password">
+                    <button id="loginBtn" class="auth-btn">Login</button>
+                    <button id="registerBtn" class="auth-btn">Register</button>
+                </div>
+                <div id="welcomeMessage"></div>
             </div>
-            <div id="welcomeMessage"></div>
-        </div>
 
-        <div id="ui">
-            <div>Score: <span id="scoreDisplay" class="score-val">0</span></div>
-            <div id="highScoreClickable" class="clickable-ui">High Score: <span id="highScoreDisplay" class="high-val">0</span></div>
-            <div id="equippedClickable" class="clickable-ui">Equipped: <span id="skinDisplay" class="skin-val">Default</span></div>
-            <div id="shardDisplay">
-                <div id="whiteShard" class="shard shard-white" title="White Shard"></div>
-                <div id="blackShard" class="shard shard-black" title="Black Shard"></div>
+            <div id="ui">
+                <div>Score: <span id="scoreDisplay" class="score-val">0</span></div>
+                <div id="highScoreClickable" class="clickable-ui">High Score: <span id="highScoreDisplay" class="high-val">0</span></div>
+                <div id="equippedClickable" class="clickable-ui">Equipped: <span id="skinDisplay" class="skin-val">Default</span></div>
+                <div id="shardDisplay">
+                    <div id="whiteShard" class="shard shard-white" title="White Shard"></div>
+                    <div id="blackShard" class="shard shard-black" title="Black Shard"></div>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas" width="800" height="480"></canvas>
+
+            <div id="changingRoom">
+                <h3>👕 Changing Room</h3>
+                <button id="fuseBtn">FUSE SHARDS?</button>
+                <div class="skins-grid" id="skinsGrid"></div>
             </div>
         </div>
 
-        <canvas id="gameCanvas" width="800" height="480"></canvas>
-
-        <div id="changingRoom">
-            <h3>👕 Changing Room</h3>
-            <button id="fuseBtn">FUSE SHARDS?</button>
-            <div class="skins-grid" id="skinsGrid"></div>
+        <div id="sidebar">
+            <h3>🏆 Leaderboard</h3>
+            <div id="leaderboardList">
+                <div style="text-align: center; color: #666; margin-top: 20px;">Loading scores...</div>
+            </div>
         </div>
+
     </div>
 
     <script>
@@ -272,6 +360,7 @@
         const skinDisplay = document.getElementById("skinDisplay");
         const skinsGrid = document.getElementById("skinsGrid");
         const fuseBtn = document.getElementById("fuseBtn");
+        const leaderboardList = document.getElementById("leaderboardList");
 
         // --- Game Config & Physics ---
         const GRAVITY = 0.42; 
@@ -314,6 +403,45 @@
             }
         });
 
+        // --- FETCH LEADERBOARD FUNCTION ---
+        async function fetchLeaderboard() {
+            try {
+                const res = await fetch(`${API_URL}/api/leaderboard`);
+                const data = await res.json();
+                if (data.success) {
+                    leaderboardList.innerHTML = "";
+                    if (data.leaderboard.length === 0) {
+                        leaderboardList.innerHTML = '<div style="text-align: center; color: #666; margin-top: 20px;">No scores recorded yet!</div>';
+                        return;
+                    }
+                    data.leaderboard.forEach((row, index) => {
+                        const item = document.createElement("div");
+                        item.className = "leaderboard-item";
+                        
+                        // Highlight current user
+                        if(currentUser && row.username === currentUser) {
+                            item.style.borderColor = "#4ecca3";
+                            item.style.background = "#232342";
+                        }
+
+                        item.innerHTML = `
+                            <div>
+                                <span class="leaderboard-rank">#${index + 1}</span>
+                                <span class="leaderboard-name">${row.username}</span>
+                            </div>
+                            <span class="leaderboard-score">${row.score}</span>
+                        `;
+                        leaderboardList.appendChild(item);
+                    });
+                }
+            } catch (e) {
+                leaderboardList.innerHTML = '<div style="text-align: center; color: #ff0055; margin-top: 20px;">Failed to load ranks.</div>';
+            }
+        }
+
+        // Fetch leaderboard instantly on startup
+        fetchLeaderboard();
+
         // --- CLOUDFLARE SYNC FUNCTIONS ---
         async function syncCloudSave() {
             if (!currentUser) return; 
@@ -335,6 +463,8 @@
                     body: JSON.stringify(payload)
                 });
                 console.log("Saved to cloud.");
+                // Update leaderboard instantly after a cloud save occurs
+                fetchLeaderboard();
             } catch (e) {
                 console.error("Cloud save failed:", e);
             }
@@ -351,9 +481,10 @@
 
         // --- AUTHENTICATION LISTENERS ---
         document.getElementById("registerBtn").addEventListener("click", async () => {
-            const u = document.getElementById("usernameInput").value;
+            const u = document.getElementById("usernameInput").value.trim();
             const p = document.getElementById("passwordInput").value;
             if(!u || !p) return alert("Please fill in both username and password.");
+            if(u.length > 15) return alert("Usernames must be 15 characters or less.");
             
             try {
                 const res = await fetch(`${API_URL}/api/register`, {
@@ -369,7 +500,7 @@
         });
 
         document.getElementById("loginBtn").addEventListener("click", async () => {
-            const u = document.getElementById("usernameInput").value;
+            const u = document.getElementById("usernameInput").value.trim();
             const p = document.getElementById("passwordInput").value;
             if(!u || !p) return alert("Please fill in both username and password.");
             
@@ -404,6 +535,7 @@
                     welcome.style.display = "block";
                     
                     renderChangingRoom();
+                    fetchLeaderboard(); // Update highlighted user cards inside sidebar
                 } else {
                     alert("Login failed: " + data.error);
                 }
@@ -670,6 +802,7 @@
             manageEnvironment();
         }
 
+        // --- Reset Game Function ---
         function resetGame() {
             player.x = 100; player.y = 200; player.vx = 6; player.vy = 0;
             player.isSwinging = false; player.hookedTo = null;
@@ -678,6 +811,7 @@
             manageEnvironment();
             gameStatus = "playing";
             currentRealm = null;
+            fetchLeaderboard(); // Pull fresh database context on loop reset
         }
 
         // --- Core Update Loop ---
