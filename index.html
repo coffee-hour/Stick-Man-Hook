@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☯️</text></svg>">
-    <title>Infinite Stickman Hook - Exalted Edition</title>
+    <title>Swing!</title>
     <style>
         body {
             margin: 0;
@@ -615,10 +615,6 @@
             if (gameStatus === "lost") { resetGame(); return; }
             if (gameStatus === "fusion") return; 
 
-            if (SKINS_CONFIG[equippedSkin] && SKINS_CONFIG[equippedSkin].splitColor && gameStatus === "playing") {
-                player.vy = -7.5; player.vx = Math.max(player.vx, 6); 
-            }
-
             if (targetHook && !player.isSwinging) {
                 let dx = targetHook.x - player.x; let dy = targetHook.y - player.y;
                 player.isSwinging = true; player.hookedTo = targetHook; player.ropeLength = Math.sqrt(dx * dx + dy * dy);
@@ -682,7 +678,7 @@
 
             manageEnvironment();
             if (!player.isSwinging) findClosestTarget();
-            flameOffset += 0.15;
+            flameOffset += 0.05; // Slightly slower rotation base
 
             if (gameStatus === "playing") {
                 portals.forEach(p => {
@@ -762,7 +758,7 @@
             
             ctx.fillStyle = "rgba(255, 69, 0, 0.4)"; 
             for (let i = 0; i < canvas.width + 100; i += 40) {
-                let flameHeight = 100 + Math.sin((i / 20) + flameOffset) * 40;
+                let flameHeight = 100 + Math.sin((i / 20) + (flameOffset * 3)) * 40;
                 ctx.beginPath(); 
                 ctx.moveTo(i, canvas.height); 
                 ctx.quadraticCurveTo(i + 20, canvas.height - flameHeight, i + 40, canvas.height); 
@@ -793,7 +789,7 @@
             ctx.save(); ctx.translate(-cameraX, 0); ctx.strokeStyle = currentRealm === "devil" ? "#333" : "#ccc"; ctx.lineWidth = 2;
             let startGridX = Math.floor(cameraX / 100) * 100;
             for (let i = startGridX; i < startGridX + canvas.width + 200; i += 80) {
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.quadraticCurveTo(i + Math.sin(flameOffset + i)*20, canvas.height/2, i, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.quadraticCurveTo(i + Math.sin((flameOffset*3) + i)*20, canvas.height/2, i, canvas.height); ctx.stroke();
             }
             ctx.restore();
         }
@@ -825,7 +821,7 @@
                     localStorage.setItem("stickman_white_shard", "false");
                     
                     let unlockedSkinKey = "yin_yang";
-                    let alertMsg = "☯️ PERFECT BALANCE ACHIEVED: YIN YANG UNLOCKED ☯️\n(Click anywhere to flap your wings!)";
+                    let alertMsg = "☯️ PERFECT BALANCE ACHIEVED: YIN YANG UNLOCKED ☯️";
 
                     if (checkUnlockStatus("yin_yang")) {
                         const gachaPool = ["split_fire_ice", "split_toxic_bio", "split_solar_lunar", "split_neon_synth"];
@@ -936,25 +932,52 @@
                 ctx.beginPath(); ctx.moveTo(player.x + 6, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5); ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
             }
 
-            // GACHA SPLIT SKINS LOGIC
+            // GACHA SPLIT SKINS LOGIC (Redesigned)
             if (SKINS_CONFIG[equippedSkin] && SKINS_CONFIG[equippedSkin].splitColor) {
-                let flapAnim = Math.sin(flameOffset * 4) * 5; 
                 let colorLeft = SKINS_CONFIG[equippedSkin].color || "#ffffff";
                 let colorRight = SKINS_CONFIG[equippedSkin].splitColor || "#000000";
 
-                ctx.fillStyle = colorLeft;
-                ctx.beginPath(); ctx.moveTo(player.x - 5, player.y); ctx.quadraticCurveTo(player.x - 25, player.y - 20 + flapAnim, player.x - 35, player.y - 5 + flapAnim); ctx.quadraticCurveTo(player.x - 20, player.y + 5, player.x - 5, player.y); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(player.x + 5, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 20 + flapAnim, player.x + 35, player.y - 5 + flapAnim); ctx.quadraticCurveTo(player.x + 20, player.y + 5, player.x + 5, player.y); ctx.fill();
-                
-                ctx.fillStyle = colorRight;
-                ctx.beginPath(); ctx.moveTo(player.x - 5, player.y + 5); ctx.quadraticCurveTo(player.x - 20, player.y - 5 + flapAnim, player.x - 30, player.y + 10 + flapAnim); ctx.quadraticCurveTo(player.x - 15, player.y + 15, player.x - 5, player.y + 5); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(player.x + 5, player.y + 5); ctx.quadraticCurveTo(player.x + 20, player.y - 5 + flapAnim, player.x + 30, player.y + 10 + flapAnim); ctx.quadraticCurveTo(player.x + 15, player.y + 15, player.x + 5, player.y + 5); ctx.fill();
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(flameOffset * 2); // Rotate the whole player model for these skins
 
-                ctx.fillStyle = colorLeft; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, Math.PI/2, Math.PI*1.5); ctx.fill();
-                ctx.fillStyle = colorRight; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, Math.PI*1.5, Math.PI/2); ctx.fill();
-                
-                ctx.fillStyle = colorRight; ctx.beginPath(); ctx.arc(player.x - 3, player.y, 2, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = colorLeft; ctx.beginPath(); ctx.arc(player.x + 3, player.y, 2, 0, Math.PI*2); ctx.fill();
+                if (equippedSkin === "yin_yang") {
+                    // True Yin Yang Design
+                    ctx.fillStyle = colorLeft;
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI / 2, Math.PI * 1.5); ctx.fill();
+                    
+                    ctx.fillStyle = colorRight;
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI * 1.5, Math.PI / 2); ctx.fill();
+                    
+                    ctx.fillStyle = colorLeft;
+                    ctx.beginPath(); ctx.arc(0, -player.radius / 2, player.radius / 2, 0, Math.PI * 2); ctx.fill();
+                    
+                    ctx.fillStyle = colorRight;
+                    ctx.beginPath(); ctx.arc(0, player.radius / 2, player.radius / 2, 0, Math.PI * 2); ctx.fill();
+                    
+                    ctx.fillStyle = colorRight;
+                    ctx.beginPath(); ctx.arc(0, -player.radius / 2, 2.5, 0, Math.PI * 2); ctx.fill();
+                    
+                    ctx.fillStyle = colorLeft;
+                    ctx.beginPath(); ctx.arc(0, player.radius / 2, 2.5, 0, Math.PI * 2); ctx.fill();
+                } else {
+                    // Gacha Skins Design: Core + Orbital Rings
+                    ctx.fillStyle = colorLeft;
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI / 2, Math.PI * 1.5); ctx.fill();
+                    
+                    ctx.fillStyle = colorRight;
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI * 1.5, Math.PI / 2); ctx.fill();
+                    
+                    ctx.fillStyle = "#ffffff";
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius * 0.4, 0, Math.PI * 2); ctx.fill();
+                    
+                    ctx.fillStyle = colorRight;
+                    ctx.beginPath(); ctx.arc(-player.radius - 4, 0, 3, 0, Math.PI * 2); ctx.fill();
+                    
+                    ctx.fillStyle = colorLeft;
+                    ctx.beginPath(); ctx.arc(player.radius + 4, 0, 3, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.restore();
             } else {
                 // NORMAL SKINS
                 if (gameStatus === "realm") ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000";
