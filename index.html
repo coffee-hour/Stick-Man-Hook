@@ -45,13 +45,11 @@
         .high-val { color: #f9a826; }
         .skin-val { color: #00adb5; text-transform: capitalize; }
         
-        #highScoreClickable {
+        .clickable-ui {
             cursor: pointer;
             transition: color 0.2s;
         }
-        #highScoreClickable:hover {
-            color: #fff;
-        }
+        .clickable-ui:hover { color: #fff; }
         
         /* Changing Room Styles */
         #changingRoom {
@@ -119,7 +117,6 @@
             border: 1px solid rgba(255,255,255,0.2);
         }
         
-        /* Dropdown Arrow Toggle */
         .dropdown-arrow {
             position: absolute;
             top: -8px;
@@ -137,9 +134,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.5);
             z-index: 10;
         }
-        .dropdown-arrow:hover {
-            background: #fff;
-        }
+        .dropdown-arrow:hover { background: #fff; }
     </style>
 </head>
 <body>
@@ -147,8 +142,8 @@
     <div id="game-container">
         <div id="ui">
             <div>Score: <span id="scoreDisplay" class="score-val">0</span></div>
-            <div id="highScoreClickable">High Score: <span id="highScoreDisplay" class="high-val">0</span></div>
-            <div>Equipped: <span id="skinDisplay" class="skin-val">Default</span></div>
+            <div id="highScoreClickable" class="clickable-ui">High Score: <span id="highScoreDisplay" class="high-val">0</span></div>
+            <div id="equippedClickable" class="clickable-ui">Equipped: <span id="skinDisplay" class="skin-val">Default</span></div>
         </div>
 
         <canvas id="gameCanvas" width="800" height="480"></canvas>
@@ -166,6 +161,7 @@
         const highScoreDisplay = document.getElementById("highScoreDisplay");
         const skinDisplay = document.getElementById("skinDisplay");
         const highScoreClickable = document.getElementById("highScoreClickable");
+        const equippedClickable = document.getElementById("equippedClickable");
         const skinsGrid = document.getElementById("skinsGrid");
 
         // --- Game Config & Physics ---
@@ -188,13 +184,20 @@
         
         let highScore = parseInt(localStorage.getItem("stickman_high_score")) || 0;
         let equippedSkin = localStorage.getItem("stickman_equipped_skin") || "default";
+        
         let angelicDropdownOpen = false;
+        let devilDropdownOpen = false;
         let gameStatus = "playing";
 
         // --- Skins Database Config ---
         const SKINS_CONFIG = {
             default: { name: "Default", color: "#00adb5" },
+            
             devil: { name: "Devil", color: "#ff0055", condition: "???" }, 
+            denied_devil: { name: "Denied Devil", color: "#ff0055", condition: "???", parent: "devil" },
+            accurate_devil: { name: "Accurate Devil", color: "#d4af37", condition: "???", parent: "devil" },
+            exalted_devil: { name: "Exalted Devil", color: "#ff0055", condition: "???", parent: "devil" },
+
             brown: { name: "Brown", color: "#8b4513", score: 100 },
             green: { name: "Green", color: "#00ff00", score: 500 },
             pink: { name: "Pink", color: "#ffc0cb", score: 1000 },
@@ -203,33 +206,55 @@
             orange: { name: "Orange", color: "#ffa500", score: 10000 },
             yellow: { name: "Yellow", color: "#ffff00", score: 20000 },
             gold: { name: "Gold", color: "#d4af37", score: 100000 },
-            angelic: { name: "Angelic Dev", color: "#ffffff", condition: "Secret Code" },
             
-            // Sub-skins for Angelic Tree
+            angelic: { name: "Angelic Dev", color: "#ffffff", condition: "Secret Code" },
             denied_angel: { name: "Denied Angel", color: "#ffffff", condition: "???", parent: "angelic" },
             accurate_angel: { name: "Accurate Angel", color: "#ffffff", condition: "???", parent: "angelic" },
             exalted_angel: { name: "Exalted Angel", color: "#ffffff", condition: "???", parent: "angelic" }
         };
 
-        // --- Secret Code Input ---
+        // --- Secret Codes ---
         highScoreClickable.addEventListener("click", () => {
             let code = prompt("ENTER ACCESS CODE:");
             if (code && code.toUpperCase() === "IAMXAVIER") {
                 localStorage.setItem("stickman_skin_angelic", "true");
-                alert("😇 ANGELIC DEV MODE UNLOCKED 😇");
+                
+                // DENIED DEVIL UNLOCK TRIGGER
+                if (equippedSkin.includes("devil") && localStorage.getItem("stickman_skin_denied_devil") !== "true") {
+                    localStorage.setItem("stickman_skin_denied_devil", "true");
+                    alert("😈 UNLOCKED: DENIED DEVIL (Tried to seek grace while cursed...)");
+                } else {
+                    alert("😇 ANGELIC DEV MODE UNLOCKED 😇");
+                }
                 renderChangingRoom();
             } else if (code !== null) {
                 alert("ACCESS DENIED.");
             }
         });
 
+        // 100K Teleport Cheat
+        equippedClickable.addEventListener("click", () => {
+            let code = prompt("ENTER ACCESS CODE:");
+            if (code && code.toUpperCase() === "PT") {
+                // Teleporting the player 1,000,000 pixels forward equates to a score of 100,000
+                player.x = 1000100;
+                player.y = 100;
+                player.vx = 12;
+                player.vy = 0;
+                player.isSwinging = false;
+                player.hookedTo = null;
+                hooks = []; 
+                bouncers = [];
+                manageEnvironment();
+                alert("⏩ WARP SPEED ENGAGED: 100,000 POINTS");
+            }
+        });
+
         function checkUnlockStatus(key) {
             if (key === "default") return true;
-            if (key === "devil") return localStorage.getItem("stickman_skin_devil") === "true";
-            if (key === "angelic") return localStorage.getItem("stickman_skin_angelic") === "true";
-            if (key === "denied_angel") return localStorage.getItem("stickman_skin_denied_angel") === "true";
-            if (key === "accurate_angel") return localStorage.getItem("stickman_skin_accurate_angel") === "true";
-            if (key === "exalted_angel") return localStorage.getItem("stickman_skin_exalted_angel") === "true";
+            if (SKINS_CONFIG[key].condition && SKINS_CONFIG[key].score === undefined) {
+                return localStorage.getItem(`stickman_skin_${key}`) === "true";
+            }
             return highScore >= SKINS_CONFIG[key].score;
         }
 
@@ -237,18 +262,14 @@
         function renderChangingRoom() {
             skinsGrid.innerHTML = "";
             
-            // Check if any sub-skins are owned to activate the dropdown arrow
-            const hasSubSkins = (
-                checkUnlockStatus("denied_angel") || 
-                checkUnlockStatus("accurate_angel") || 
-                checkUnlockStatus("exalted_angel")
-            );
+            const hasAngelSubSkins = checkUnlockStatus("denied_angel") || checkUnlockStatus("accurate_angel") || checkUnlockStatus("exalted_angel");
+            const hasDevilSubSkins = checkUnlockStatus("denied_devil") || checkUnlockStatus("accurate_devil") || checkUnlockStatus("exalted_devil");
 
             Object.keys(SKINS_CONFIG).forEach(key => {
                 const skin = SKINS_CONFIG[key];
                 
-                // Skip rendering sub-skins initially unless their dropdown is open
-                if (skin.parent && !angelicDropdownOpen) return;
+                if (skin.parent === "angelic" && !angelicDropdownOpen) return;
+                if (skin.parent === "devil" && !devilDropdownOpen) return;
 
                 const isUnlocked = checkUnlockStatus(key);
                 const isEquipped = equippedSkin === key;
@@ -261,9 +282,10 @@
                 preview.className = "skin-preview";
                 preview.style.backgroundColor = skin.color;
                 
-                // Add tiny visual flairs to the preview icons for the sub-skins
-                if (key === "denied_angel") preview.style.borderColor = "red";
-                if (key === "exalted_angel") preview.style.boxShadow = "0 0 5px #f9a826";
+                // Visual Flairs
+                if (key === "denied_angel" || key === "denied_devil") preview.style.borderColor = "red";
+                if (key === "exalted_angel" || key === "accurate_devil") preview.style.boxShadow = "0 0 5px #f9a826";
+                if (key === "exalted_devil") preview.style.boxShadow = "0 0 5px #ff0055";
 
                 btn.appendChild(preview);
                 
@@ -278,14 +300,27 @@
                 else if (skin.condition) infoLabel.textContent = skin.condition;
                 btn.appendChild(infoLabel);
 
-                // Add dropdown logic to the main Angelic button
-                if (key === "angelic" && isUnlocked && hasSubSkins) {
+                // Angelic Dropdown
+                if (key === "angelic" && isUnlocked && hasAngelSubSkins) {
                     const arrow = document.createElement("div");
                     arrow.className = "dropdown-arrow";
                     arrow.textContent = angelicDropdownOpen ? "▲" : "▼";
                     arrow.addEventListener("click", (e) => {
-                        e.stopPropagation(); // Don't trigger the equip function
+                        e.stopPropagation(); 
                         angelicDropdownOpen = !angelicDropdownOpen;
+                        renderChangingRoom();
+                    });
+                    btn.appendChild(arrow);
+                }
+                
+                // Devil Dropdown
+                if (key === "devil" && isUnlocked && hasDevilSubSkins) {
+                    const arrow = document.createElement("div");
+                    arrow.className = "dropdown-arrow";
+                    arrow.textContent = devilDropdownOpen ? "▲" : "▼";
+                    arrow.addEventListener("click", (e) => {
+                        e.stopPropagation(); 
+                        devilDropdownOpen = !devilDropdownOpen;
                         renderChangingRoom();
                     });
                     btn.appendChild(arrow);
@@ -336,7 +371,7 @@
 
         // --- Procedural Generation ---
         function manageEnvironment() {
-            if (hooks.length === 0) hooks.push({ x: 300, y: 160 });
+            if (hooks.length === 0) hooks.push({ x: player.x + 200, y: 160 });
 
             let lastHook = hooks[hooks.length - 1];
             while (lastHook.x < player.x + 1000) {
@@ -449,11 +484,18 @@
             score = Math.floor(player.x / 10) - 10;
             scoreDisplay.textContent = score;
 
-            // EXALTED ANGEL: Mid-run unlock threshold check
-            if (score >= 10000 && equippedSkin.includes("angel") && localStorage.getItem("stickman_skin_exalted_angel") !== "true") {
-                localStorage.setItem("stickman_skin_exalted_angel", "true");
-                alert("✨ UNLOCKED: EXALTED ANGEL (Reached 10,000 score with an angelic skin!)");
-                renderChangingRoom();
+            // EXALTED THRESHOLDS 
+            if (score >= 10000) {
+                if (equippedSkin.includes("angel") && localStorage.getItem("stickman_skin_exalted_angel") !== "true") {
+                    localStorage.setItem("stickman_skin_exalted_angel", "true");
+                    alert("✨ UNLOCKED: EXALTED ANGEL!");
+                    renderChangingRoom();
+                }
+                if (equippedSkin.includes("devil") && localStorage.getItem("stickman_skin_exalted_devil") !== "true") {
+                    localStorage.setItem("stickman_skin_exalted_devil", "true");
+                    alert("🔥 UNLOCKED: EXALTED DEVIL!");
+                    renderChangingRoom();
+                }
             }
 
             // Defeat Line Logic
@@ -472,19 +514,28 @@
                     alert("👹 UNLOCKED: THE DEVIL SKIN!");
                 }
 
-                // DENIED ANGEL: Negative score + Angel skin active
+                // DENIED ANGEL
                 if (score < 0 && equippedSkin.includes("angel") && localStorage.getItem("stickman_skin_denied_angel") !== "true") {
                     localStorage.setItem("stickman_skin_denied_angel", "true");
-                    alert("🥀 UNLOCKED: DENIED ANGEL (Fell to the underworld as a divine being)");
+                    alert("🥀 UNLOCKED: DENIED ANGEL");
                 }
 
-                // ACCURATE ANGEL: Death tracker (+1 per fall)
+                // ACCURATE DEATH TRACKERS
                 if (equippedSkin.includes("angel")) {
                     let angelDeaths = parseInt(localStorage.getItem("stickman_angelic_deaths") || "0") + 1;
                     localStorage.setItem("stickman_angelic_deaths", angelDeaths);
                     if (angelDeaths >= 20 && localStorage.getItem("stickman_skin_accurate_angel") !== "true") {
                         localStorage.setItem("stickman_skin_accurate_angel", "true");
-                        alert("👁️ UNLOCKED: ACCURATE ANGEL (Died 20 times in angelic form)");
+                        alert("👁️ UNLOCKED: ACCURATE ANGEL");
+                    }
+                }
+                
+                if (equippedSkin.includes("devil")) {
+                    let devilDeaths = parseInt(localStorage.getItem("stickman_devil_deaths") || "0") + 1;
+                    localStorage.setItem("stickman_devil_deaths", devilDeaths);
+                    if (devilDeaths >= 20 && localStorage.getItem("stickman_skin_accurate_devil") !== "true") {
+                        localStorage.setItem("stickman_skin_accurate_devil", "true");
+                        alert("🎩 UNLOCKED: ACCURATE DEVIL");
                     }
                 }
 
@@ -534,18 +585,14 @@
             ctx.restore();
         }
 
-        // Draws dynamic halo per color
         function drawHalo(x, y, color) {
             ctx.strokeStyle = color;
             ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.ellipse(x, y - 20, 14, 4, 0, 0, Math.PI * 2);
-            ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(x, y - 20, 14, 4, 0, 0, Math.PI * 2); ctx.stroke();
         }
 
         function draw() {
-            // Check if any variant of Angel is active for the background
-            if (equippedSkin === "devil") drawDevilBackground();
+            if (equippedSkin.includes("devil")) drawDevilBackground();
             else if (equippedSkin.includes("angel")) drawAngelicBackground();
             else drawDefaultBackground();
 
@@ -567,7 +614,7 @@
             hooks.forEach(hook => {
                 let isTargeted = (hook === targetHook && !player.isSwinging);
                 
-                if (equippedSkin === "devil" || equippedSkin === "denied_angel") ctx.fillStyle = "#ff0055";
+                if (equippedSkin.includes("devil") || equippedSkin === "denied_angel") ctx.fillStyle = "#ff0055";
                 else if (equippedSkin.includes("angel")) ctx.fillStyle = "#fab1a0";
                 else ctx.fillStyle = isTargeted ? "#4ecca3" : "#e94560";
                 
@@ -578,7 +625,7 @@
                 ctx.beginPath(); ctx.arc(hook.x, hook.y, 16, 0, Math.PI * 2); ctx.stroke();
 
                 if (isTargeted) {
-                    ctx.strokeStyle = equippedSkin.includes("angel") ? "#ffffff" : "#4ecca3";
+                    ctx.strokeStyle = equippedSkin.includes("angel") && equippedSkin !== "denied_angel" ? "#ffffff" : "#4ecca3";
                     ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
                     ctx.beginPath(); ctx.arc(hook.x, hook.y, 25, 0, Math.PI * 2); ctx.stroke();
                     ctx.setLineDash([]);
@@ -587,7 +634,7 @@
 
             // Rope styles
             if (player.isSwinging && player.hookedTo) {
-                if (equippedSkin === "devil" || equippedSkin === "denied_angel") {
+                if (equippedSkin.includes("devil") || equippedSkin === "denied_angel") {
                     ctx.strokeStyle = "#ff0055"; ctx.shadowColor = "#ff0055"; ctx.shadowBlur = 10; ctx.lineWidth = 3.5;
                 } else if (equippedSkin.includes("angel")) {
                     ctx.strokeStyle = "#ffeaa7"; ctx.lineWidth = 3;
@@ -595,60 +642,108 @@
                     ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
                 }
                 ctx.beginPath(); ctx.moveTo(player.hookedTo.x, player.hookedTo.y); ctx.lineTo(player.x, player.y); ctx.stroke();
-                ctx.shadowBlur = 0; // Prevent shadow drain on blob
+                ctx.shadowBlur = 0; 
             }
 
-            // Exalted Aura Render (Behind Player)
+            // Exalted Angel Aura & Wings
             if (equippedSkin === "exalted_angel") {
-                ctx.shadowColor = "#ffeaa7";
-                ctx.shadowBlur = 15;
-                ctx.strokeStyle = "rgba(255, 234, 167, 0.7)";
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.arc(player.x, player.y, player.radius + 6, 0, Math.PI * 2);
-                ctx.stroke();
+                ctx.shadowColor = "#ffeaa7"; ctx.shadowBlur = 15;
+                ctx.strokeStyle = "rgba(255, 234, 167, 0.7)"; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 6, 0, Math.PI * 2); ctx.stroke();
                 ctx.shadowBlur = 0;
-            }
 
-            // Exalted Wings Render (Behind Player)
-            if (equippedSkin === "exalted_angel") {
                 ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-                // Left Wing
-                ctx.beginPath(); ctx.moveTo(player.x - 6, player.y);
-                ctx.quadraticCurveTo(player.x - 25, player.y - 18, player.x - 30, player.y - 5);
-                ctx.quadraticCurveTo(player.x - 20, player.y + 12, player.x - 8, player.y + 4); ctx.fill();
-                // Right Wing
-                ctx.beginPath(); ctx.moveTo(player.x + 6, player.y);
-                ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5);
-                ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(player.x - 6, player.y); ctx.quadraticCurveTo(player.x - 25, player.y - 18, player.x - 30, player.y - 5); ctx.quadraticCurveTo(player.x - 20, player.y + 12, player.x - 8, player.y + 4); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(player.x + 6, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5); ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
+            }
+            
+            // Exalted Devil Spikey Tail
+            if (equippedSkin === "exalted_devil") {
+                ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.moveTo(player.x - 8, player.y + 5); 
+                ctx.quadraticCurveTo(player.x - 25, player.y + 15, player.x - 20, player.y - 8); ctx.stroke();
+                
+                ctx.fillStyle = "#8b0000";
+                ctx.beginPath(); ctx.moveTo(player.x - 20, player.y - 10); ctx.lineTo(player.x - 25, player.y - 4); ctx.lineTo(player.x - 15, player.y - 4); ctx.fill();
             }
 
             // Draw Player Blob
             ctx.fillStyle = SKINS_CONFIG[equippedSkin].color;
             ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
 
-            // Angel Halo Handlers
-            if (equippedSkin === "angelic" || equippedSkin === "accurate_angel" || equippedSkin === "exalted_angel") drawHalo(player.x, player.y, "#ffeaa7");
-            if (equippedSkin === "denied_angel") drawHalo(player.x, player.y, "#ff0055");
-
-            // Eye Details & Accessories
+            // Accessory Layering
+            if (equippedSkin === "angelic" || equippedSkin === "accurate_angel" || equippedSkin === "exalted_angel" || equippedSkin === "denied_devil") {
+                drawHalo(player.x, player.y, "#ffeaa7");
+            }
+            if (equippedSkin === "denied_angel") {
+                drawHalo(player.x, player.y, "#ff0055");
+            }
+            
+            // Devil Horns
+            if (equippedSkin === "devil" || equippedSkin === "exalted_devil") {
+                ctx.fillStyle = "#ff0055";
+                ctx.beginPath(); ctx.moveTo(player.x - 8, player.y - 8); ctx.lineTo(player.x - 14, player.y - 18); ctx.lineTo(player.x - 2, player.y - 11); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(player.x + 8, player.y - 8); ctx.lineTo(player.x + 14, player.y - 18); ctx.lineTo(player.x + 2, player.y - 11); ctx.fill();
+            }
+            
+            // Denied Devil Extras
+            if (equippedSkin === "denied_devil") {
+                // Floppy Red Ears
+                ctx.fillStyle = "#cc0044";
+                ctx.beginPath(); ctx.ellipse(player.x - 10, player.y + 2, 3, 9, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(player.x + 10, player.y + 2, 3, 9, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+                // White Eyes
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+            }
+            
+            // Accurate Devil Extras
+            if (equippedSkin === "accurate_devil") {
+                // Tuxedo Base
+                ctx.fillStyle = "#111111";
+                ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI); ctx.fill();
+                // White undershirt V-neck
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath(); ctx.moveTo(player.x - 5, player.y - 3); ctx.lineTo(player.x + 5, player.y - 3); ctx.lineTo(player.x, player.y + 4); ctx.fill();
+                // Red Bowtie
+                ctx.fillStyle = "#ff0000";
+                ctx.beginPath(); ctx.moveTo(player.x - 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x - 4, player.y + 2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(player.x + 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x + 4, player.y + 2); ctx.fill();
+                // Red Eyes
+                ctx.fillStyle = "#ff0000";
+                ctx.beginPath(); ctx.arc(player.x - 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(player.x + 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
+            }
+            
+            // Exalted Devil Extras
+            if (equippedSkin === "exalted_devil") {
+                // Crimson Pitchfork in Hand
+                ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(player.x + 8, player.y + 6); ctx.lineTo(player.x + 22, player.y - 12); ctx.stroke(); // Shaft
+                ctx.beginPath(); ctx.moveTo(player.x + 16, player.y - 9); ctx.lineTo(player.x + 19, player.y - 16); ctx.lineTo(player.x + 26, player.y - 12); ctx.stroke(); // Prongs
+                ctx.fillStyle = "#8b0000"; ctx.beginPath(); ctx.arc(player.x + 23, player.y - 13, 1.2, 0, Math.PI*2); ctx.fill(); // Center Point
+                
+                // Black Eyes
+                ctx.fillStyle = "#000000";
+                ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+            }
+            
+            // Denied Angel Eyes
             if (equippedSkin === "denied_angel") {
                 ctx.fillStyle = "#ff0055";
                 ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
                 ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
             }
+            
+            // Accurate Angel Eyes
             if (equippedSkin === "accurate_angel") {
                 ctx.fillStyle = "#000000";
                 let eyePos = [[-5, -4], [0, -6], [5, -4], [-4, 3], [4, 3], [0, 6]];
                 eyePos.forEach(p => {
                     ctx.beginPath(); ctx.arc(player.x + p[0], player.y + p[1], 1.8, 0, Math.PI*2); ctx.fill();
                 });
-            }
-            
-            if (equippedSkin === "devil") {
-                ctx.fillStyle = "#ff0055";
-                ctx.beginPath(); ctx.moveTo(player.x - 8, player.y - 8); ctx.lineTo(player.x - 14, player.y - 18); ctx.lineTo(player.x - 2, player.y - 11); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(player.x + 8, player.y - 8); ctx.lineTo(player.x + 14, player.y - 18); ctx.lineTo(player.x + 2, player.y - 11); ctx.fill();
             }
 
             ctx.restore();
