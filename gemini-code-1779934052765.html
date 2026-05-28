@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stickman Hook Prototype</title>
+    <style>
+        body {
+            margin: 0;
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: sans-serif;
+            color: white;
+        }
+        canvas {
+            background: #162447;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 8px;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="info">
+        <h2>Stickman Hook Clone</h2>
+        <p>Click and HOLD to hook onto the nearest point. Release to launch!</p>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // --- Game Config & Physics Constants ---
+        const GRAVITY = 0.4;
+        const FRICTION = 0.995; // Air resistance
+
+        // --- Game State ---
+        let player = {
+            x: 100,
+            y: 250,
+            vx: 5,
+            vy: 0,
+            radius: 12,
+            isSwinging: false,
+            hookedTo: null,
+            ropeLength: 0
+        };
+
+        // Grappling points (Hooks)
+        let hooks = [
+            { x: 250, y: 150 },
+            { x: 450, y: 100 },
+            { x: 650, y: 180 },
+            { x: 900, y: 120 },
+            { x: 1150, y: 150 },
+            { x: 1400, y: 100 }
+        ];
+
+        // Level goal position
+        const finishLineX = 1600;
+        let cameraX = 0;
+        let gameStatus = "playing"; // playing, won, lost
+
+        // --- Input Handling ---
+        window.addEventListener("mousedown", handleActionStart);
+        window.addEventListener("mouseup", handleActionEnd);
+        window.addEventListener("touchstart", (e) => { e.preventDefault(); handleActionStart(); });
+        window.addEventListener("touchend", (e) => { e.preventDefault(); handleActionEnd(); });
+
+        function handleActionStart() {
+            if (gameStatus !== "playing") {
+                resetGame();
+                return;
+            }
+
+            // Find the closest hook that is ahead of or near the player
+            let closestHook = null;
+            let minDist = Infinity;
+
+            hooks.forEach(hook => {
+                let dx = hook.x - player.x;
+                let dy = hook.y - player.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Prioritize hooks in front of the player
+                if (dist < minDist && hook.x > player.x - 50) {
+                    minDist = dist;
+                    closestHook = hook;
+                }
+            });
+
+            if (closestHook && minDist < 350) { // Max hook range
+                player.isSwinging = true;
+                player.hookedTo = closestHook;
+                player.ropeLength = minDist;
+            }
+        }
+
+        function handleActionEnd() {
+            player.isSwinging = false;
+            player.hookedTo = null;
+        }
+
+        function resetGame() {
+            player.x = 100;
+            player.y = 250;
+            player.vx = 5;
+            player.vy = 0;
+            player.isSwinging = false;
+            player.hookedTo = null;
+            gameStatus = "playing";
+        }
+
+        // --- Core Physics & Update Loop ---
+        function update() {
+            if (gameStatus !== "playing") return;
+
+            // Apply Gravity
+            player.vy += GRAVITY;
+
+            // Apply air resistance
+            player.vx *= FRICTION;
+            player.vy *= FRICTION;
+
+            // Apply basic movement
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Handle Rope Swing Physics (The magic part)
+            if (player.isSwinging && player.hookedTo) {
+                let hook = player.hookedTo;
+                let dx = player.x - hook.x;
+                let dy = player.y - hook.y;
+                let currentDist = Math.sqrt(dx * dx + dy * dy);
+
+                // If the rope stretches past its length, constrain the player
+                if (currentDist > player.ropeLength) {
+                    let angle = Math.atan2(dy, dx);
+                    
+                    // Pull player back to the rope circumference
+                    player.x = hook.x + Math.cos(angle) * player.ropeLength;
+                    player.y = hook.y + Math.sin(angle) * player.ropeLength;
+
+                    // Constrain velocity to be perpendicular to the rope (angular velocity)
+                    let nx = dx / currentDist; // Normal vector
+                    let ny = dy / currentDist;
+
+                    // Calculate how much velocity is pushing "outward" along the rope
+                    let velAlongNormal = player.vx * nx + player.vy * ny;
+
+                    // Remove the outward velocity so the player swings in an arc
+                    player.vx -= velAlongNormal * nx;
+                    player.vy -= velAlongNormal * ny;
+
+                    // Add a tiny bit of acceleration to make the swing feel satisfying
+                    player.vx += Math.sin(angle) * 0.1; 
+                }
+            }
+
+            // Camera follow (locks onto player horizontally)
+            cameraX = player.x - 200;
+
+            // Check Win/Loss conditions
+            if (player.y > canvas.height + 100) {
+                gameStatus = "lost";
+            }
+            if (player.x >= finishLineX) {
+                gameStatus = "won";
+            }
+        }
+
+        // --- Rendering Code ---
+        function draw() {
+            // Clear screen
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            // Translate context to simulate a moving camera
+            ctx.translate(-cameraX, 0);
+
+            // Draw Background Grids/Lines for depth
+            ctx.strokeStyle = "#1f4068";
+            ctx.lineWidth = 1;
+            for (let i = 0; i < finishLineX + 400; i += 100) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+
+            // Draw Finish Line
+            ctx.fillStyle = "#4ecca3";
+            ctx.fillRect(finishLineX, 0, 20, canvas.height);
+
+            // Draw Hooks
+            hooks.forEach(hook => {
+                ctx.fillStyle = "#e94560";
+                ctx.beginPath();
+                ctx.arc(hook.x, hook.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Outer ring
+                ctx.strokeStyle = "rgba(233, 69, 96, 0.3)";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(hook.x, hook.y, 16, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+
+            // Draw Rope
+            if (player.isSwinging && player.hookedTo) {
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(player.hookedTo.x, player.hookedTo.y);
+                ctx.lineTo(player.x, player.y);
+                ctx.stroke();
+            }
+
+            // Draw Player (Stickman replacement for now)
+            ctx.fillStyle = player.isSwinging ? "#f9a826" : "#00adb5";
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // Draw UI (static on screen, ignoring camera)
+            if (gameStatus === "lost") {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#e94560";
+                ctx.font = "bold 40px sans-serif";
+                ctx.fillText("GAME OVER", canvas.width / 2 - 120, canvas.height / 2);
+                ctx.font = "20px sans-serif";
+                ctx.fillStyle = "#fff";
+                ctx.fillText("Click anywhere to restart", canvas.width / 2 - 100, canvas.height / 2 + 50);
+            } else if (gameStatus === "won") {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#4ecca3";
+                ctx.font = "bold 40px sans-serif";
+                ctx.fillText("YOU WIN!", canvas.width / 2 - 100, canvas.height / 2);
+                ctx.font = "20px sans-serif";
+                ctx.fillStyle = "#fff";
+                ctx.fillText("Click anywhere to play again", canvas.width / 2 - 110, canvas.height / 2 + 50);
+            }
+        }
+
+        // --- Main Game Loop ---
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Start the game loop
+        loop();
+    </script>
+</body>
+</html>
