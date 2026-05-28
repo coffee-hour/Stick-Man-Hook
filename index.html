@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SWING!↺</title>
+    <title>Infinite Stickman Hook - Exalted Edition</title>
     <style>
         body {
             margin: 0;
@@ -25,6 +25,47 @@
             align-items: center;
             gap: 15px;
         }
+        
+        /* Auth Panel Styles */
+        #authContainer {
+            background: rgba(22, 36, 71, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #1f4068;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            width: 770px;
+            box-sizing: border-box;
+            justify-content: space-between;
+        }
+        .auth-input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #1a1a2e;
+            background: #1a1a2e;
+            color: white;
+            font-family: inherit;
+        }
+        .auth-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        .auth-btn:hover { opacity: 0.8; }
+        #loginBtn { background: #4ecca3; color: #1a1a2e; }
+        #registerBtn { background: #00adb5; color: #fff; }
+        #welcomeMessage {
+            display: none;
+            font-weight: bold;
+            color: #4ecca3;
+            font-size: 16px;
+        }
+        #authInputs { display: flex; gap: 10px; }
+
         canvas {
             background: #162447;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -73,6 +114,7 @@
             border-radius: 8px;
             padding: 15px;
             width: 770px;
+            box-sizing: border-box;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             position: relative;
         }
@@ -84,7 +126,6 @@
             letter-spacing: 1px;
         }
         
-        /* SCROLL BAR LOGIC ADDED HERE */
         .skins-grid {
             display: flex;
             flex-wrap: wrap;
@@ -94,17 +135,9 @@
             overflow-y: auto;
             padding-right: 5px;
         }
-        .skins-grid::-webkit-scrollbar {
-            width: 8px;
-        }
-        .skins-grid::-webkit-scrollbar-track {
-            background: #1a1a2e;
-            border-radius: 4px;
-        }
-        .skins-grid::-webkit-scrollbar-thumb {
-            background: #00adb5;
-            border-radius: 4px;
-        }
+        .skins-grid::-webkit-scrollbar { width: 8px; }
+        .skins-grid::-webkit-scrollbar-track { background: #1a1a2e; border-radius: 4px; }
+        .skins-grid::-webkit-scrollbar-thumb { background: #00adb5; border-radius: 4px; }
 
         .skin-btn {
             background: #1a1a2e;
@@ -194,6 +227,18 @@
 <body>
 
     <div id="game-container">
+        
+        <div id="authContainer">
+            <div>☁️ Cloud Save</div>
+            <div id="authInputs">
+                <input type="text" id="usernameInput" class="auth-input" placeholder="Username">
+                <input type="password" id="passwordInput" class="auth-input" placeholder="Password">
+                <button id="loginBtn" class="auth-btn">Login</button>
+                <button id="registerBtn" class="auth-btn">Register</button>
+            </div>
+            <div id="welcomeMessage"></div>
+        </div>
+
         <div id="ui">
             <div>Score: <span id="scoreDisplay" class="score-val">0</span></div>
             <div id="highScoreClickable" class="clickable-ui">High Score: <span id="highScoreDisplay" class="high-val">0</span></div>
@@ -214,6 +259,12 @@
     </div>
 
     <script>
+        // --- ONLINE CLOUDFLARE VARIABLES ---
+        const API_URL = "https://swingworker.xaviersgames.workers.dev";
+        let currentUser = null;
+        let currentPassword = null;
+        let unlockedSkinsArray = [];
+
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const scoreDisplay = document.getElementById("scoreDisplay");
@@ -247,18 +298,122 @@
         let angelicDropdownOpen = false;
         let devilDropdownOpen = false;
         
-        // "playing", "lost", "realm", "fusion"
         let gameStatus = "playing";
         let currentRealm = null; 
         let realmStartScore = 0; 
 
-        // Cutscene Variables
         let fusionAngle = 0;
         let fusionSpeed = 0.05;
         let fusionDistance = 150;
         let fusionFlash = 0;
 
-        // --- REORDERED Skins Database Config ---
+        // Populate offline unlocks array from localStorage on initial load
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith("stickman_skin_") && localStorage.getItem(key) === "true") {
+                unlockedSkinsArray.push(key.replace("stickman_skin_", ""));
+            }
+        });
+
+        // --- CLOUDFLARE SYNC FUNCTIONS ---
+        async function syncCloudSave() {
+            if (!currentUser) return; 
+
+            const payload = {
+                username: currentUser,
+                password: currentPassword,
+                high_score: highScore,
+                equipped_skin: equippedSkin,
+                black_shard: localStorage.getItem("stickman_black_shard") === "true",
+                white_shard: localStorage.getItem("stickman_white_shard") === "true",
+                unlocked_skins: unlockedSkinsArray
+            };
+
+            try {
+                await fetch(`${API_URL}/api/save`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                console.log("Saved to cloud.");
+            } catch (e) {
+                console.error("Cloud save failed:", e);
+            }
+        }
+
+        // Helper function to safely unlock a skin both locally and in the cloud
+        function unlockSkin(skinKey) {
+            if (!unlockedSkinsArray.includes(skinKey)) {
+                unlockedSkinsArray.push(skinKey);
+            }
+            localStorage.setItem(`stickman_skin_${skinKey}`, "true");
+            syncCloudSave();
+        }
+
+        // --- AUTHENTICATION LISTENERS ---
+        document.getElementById("registerBtn").addEventListener("click", async () => {
+            const u = document.getElementById("usernameInput").value;
+            const p = document.getElementById("passwordInput").value;
+            if(!u || !p) return alert("Please fill in both username and password.");
+            
+            try {
+                const res = await fetch(`${API_URL}/api/register`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await res.json();
+                alert(data.success ? "Registration successful! You can now log in." : "Error: " + data.error);
+            } catch (err) {
+                alert("Failed to connect to API.");
+            }
+        });
+
+        document.getElementById("loginBtn").addEventListener("click", async () => {
+            const u = document.getElementById("usernameInput").value;
+            const p = document.getElementById("passwordInput").value;
+            if(!u || !p) return alert("Please fill in both username and password.");
+            
+            try {
+                const res = await fetch(`${API_URL}/api/login`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    currentUser = u;
+                    currentPassword = p;
+                    
+                    // Load cloud state into session
+                    highScore = data.userData.high_score;
+                    equippedSkin = data.userData.equipped_skin;
+                    unlockedSkinsArray = data.userData.unlocked_skins || [];
+                    
+                    localStorage.setItem("stickman_high_score", highScore);
+                    localStorage.setItem("stickman_equipped_skin", equippedSkin);
+                    localStorage.setItem("stickman_black_shard", data.userData.black_shard ? "true" : "false");
+                    localStorage.setItem("stickman_white_shard", data.userData.white_shard ? "true" : "false");
+                    
+                    highScoreDisplay.textContent = highScore;
+                    
+                    // Hide forms, reveal welcome banner
+                    document.getElementById("authInputs").style.display = "none";
+                    const welcome = document.getElementById("welcomeMessage");
+                    welcome.textContent = `👋 Welcome back, ${u}!`;
+                    welcome.style.display = "block";
+                    
+                    renderChangingRoom();
+                } else {
+                    alert("Login failed: " + data.error);
+                }
+            } catch (err) {
+                alert("Failed to connect to API.");
+            }
+        });
+
+
+        // --- Skins Database Config ---
         const SKINS_CONFIG = {
             default: { name: "Default", color: "#00adb5" },
             brown: { name: "Brown", color: "#8b4513", score: 100 },
@@ -270,7 +425,6 @@
             yellow: { name: "Yellow", color: "#ffff00", score: 20000 },
             gold: { name: "Gold", color: "#d4af37", score: 100000 },
             
-            // Angel and Devil next to each other
             angelic: { name: "Angelic Dev", color: "#ffffff", condition: "Secret Code" },
             denied_angel: { name: "Denied Angel", color: "#ffffff", condition: "???", parent: "angelic" },
             accurate_angel: { name: "Accurate Angel", color: "#ffffff", condition: "???", parent: "angelic" },
@@ -288,9 +442,9 @@
         document.getElementById("highScoreClickable").addEventListener("click", () => {
             let code = prompt("ENTER ACCESS CODE:");
             if (code && code.toUpperCase() === "IAMXAVIER") {
-                localStorage.setItem("stickman_skin_angelic", "true");
-                if (equippedSkin.includes("devil") && localStorage.getItem("stickman_skin_denied_devil") !== "true") {
-                    localStorage.setItem("stickman_skin_denied_devil", "true");
+                unlockSkin("angelic");
+                if (equippedSkin.includes("devil") && !unlockedSkinsArray.includes("denied_devil")) {
+                    unlockSkin("denied_devil");
                     alert("😈 UNLOCKED: DENIED DEVIL");
                 } else {
                     alert("😇 ANGELIC DEV MODE UNLOCKED 😇");
@@ -312,8 +466,9 @@
 
         function checkUnlockStatus(key) {
             if (key === "default") return true;
+            if (unlockedSkinsArray.includes(key)) return true; // Online priority
             if (SKINS_CONFIG[key].condition && SKINS_CONFIG[key].score === undefined) {
-                return localStorage.getItem(`stickman_skin_${key}`) === "true";
+                return localStorage.getItem(`stickman_skin_${key}`) === "true"; // Local fallback
             }
             return highScore >= SKINS_CONFIG[key].score;
         }
@@ -396,6 +551,7 @@
                     btn.addEventListener("click", () => {
                         equippedSkin = key;
                         localStorage.setItem("stickman_equipped_skin", key);
+                        syncCloudSave(); // SAVE TO CLOUD WHEN SKIN CHANGES
                         renderChangingRoom();
                     });
                 }
@@ -450,7 +606,6 @@
             player.hookedTo = null;
         }
 
-        // --- Procedural Generation ---
         function manageEnvironment() {
             if (hooks.length === 0) hooks.push({ x: player.x + 200, y: 160 });
 
@@ -606,6 +761,7 @@
                         localStorage.setItem("stickman_white_shard", "true");
                         alert("⬜ COLLECTED THE WHITE SHARD");
                     }
+                    syncCloudSave(); // SAVE SHARD TO CLOUD
                     renderChangingRoom();
                     resetGame(); 
                 }
@@ -614,12 +770,12 @@
                 scoreDisplay.textContent = score;
 
                 if (score >= 10000) {
-                    if (equippedSkin.includes("angel") && localStorage.getItem("stickman_skin_exalted_angel") !== "true") {
-                        localStorage.setItem("stickman_skin_exalted_angel", "true");
+                    if (equippedSkin.includes("angel") && !unlockedSkinsArray.includes("exalted_angel")) {
+                        unlockSkin("exalted_angel");
                         alert("✨ UNLOCKED: EXALTED ANGEL!"); renderChangingRoom();
                     }
-                    if (equippedSkin.includes("devil") && localStorage.getItem("stickman_skin_exalted_devil") !== "true") {
-                        localStorage.setItem("stickman_skin_exalted_devil", "true");
+                    if (equippedSkin.includes("devil") && !unlockedSkinsArray.includes("exalted_devil")) {
+                        unlockSkin("exalted_devil");
                         alert("🔥 UNLOCKED: EXALTED DEVIL!"); renderChangingRoom();
                     }
                 }
@@ -633,32 +789,37 @@
                 }
 
                 gameStatus = "lost";
+                let needsCloudSync = false;
+
                 if (score > highScore) {
                     highScore = score;
                     localStorage.setItem("stickman_high_score", highScore);
                     highScoreDisplay.textContent = highScore;
+                    needsCloudSync = true;
                 }
                 
-                if (score < 0 && localStorage.getItem("stickman_skin_devil") !== "true") {
-                    localStorage.setItem("stickman_skin_devil", "true"); alert("👹 UNLOCKED: THE DEVIL SKIN!");
+                if (score < 0 && !unlockedSkinsArray.includes("devil")) {
+                    unlockSkin("devil"); alert("👹 UNLOCKED: THE DEVIL SKIN!"); needsCloudSync = true;
                 }
-                if (score < 0 && equippedSkin.includes("angel") && localStorage.getItem("stickman_skin_denied_angel") !== "true") {
-                    localStorage.setItem("stickman_skin_denied_angel", "true"); alert("🥀 UNLOCKED: DENIED ANGEL");
+                if (score < 0 && equippedSkin.includes("angel") && !unlockedSkinsArray.includes("denied_angel")) {
+                    unlockSkin("denied_angel"); alert("🥀 UNLOCKED: DENIED ANGEL"); needsCloudSync = true;
                 }
                 if (equippedSkin.includes("angel")) {
                     let angelDeaths = parseInt(localStorage.getItem("stickman_angelic_deaths") || "0") + 1;
                     localStorage.setItem("stickman_angelic_deaths", angelDeaths);
-                    if (angelDeaths >= 20 && localStorage.getItem("stickman_skin_accurate_angel") !== "true") {
-                        localStorage.setItem("stickman_skin_accurate_angel", "true"); alert("👁️ UNLOCKED: ACCURATE ANGEL");
+                    if (angelDeaths >= 20 && !unlockedSkinsArray.includes("accurate_angel")) {
+                        unlockSkin("accurate_angel"); alert("👁️ UNLOCKED: ACCURATE ANGEL"); needsCloudSync = true;
                     }
                 }
                 if (equippedSkin.includes("devil")) {
                     let devilDeaths = parseInt(localStorage.getItem("stickman_devil_deaths") || "0") + 1;
                     localStorage.setItem("stickman_devil_deaths", devilDeaths);
-                    if (devilDeaths >= 20 && localStorage.getItem("stickman_skin_accurate_devil") !== "true") {
-                        localStorage.setItem("stickman_skin_accurate_devil", "true"); alert("🎩 UNLOCKED: ACCURATE DEVIL");
+                    if (devilDeaths >= 20 && !unlockedSkinsArray.includes("accurate_devil")) {
+                        unlockSkin("accurate_devil"); alert("🎩 UNLOCKED: ACCURATE DEVIL"); needsCloudSync = true;
                     }
                 }
+
+                if (needsCloudSync) syncCloudSave();
                 renderChangingRoom();
             }
         }
@@ -723,11 +884,12 @@
             if (fusionDistance <= 0) {
                 fusionFlash += 5; 
                 if (fusionFlash > 255) {
-                    localStorage.setItem("stickman_skin_yin_yang", "true");
                     equippedSkin = "yin_yang";
                     localStorage.setItem("stickman_equipped_skin", "yin_yang");
                     localStorage.setItem("stickman_black_shard", "false");
                     localStorage.setItem("stickman_white_shard", "false");
+                    unlockSkin("yin_yang"); // UNLOCK AND CLOUD SYNC
+                    
                     alert("☯️ PERFECT BALANCE ACHIEVED: YIN YANG UNLOCKED ☯️\n(Click anywhere to flap your wings!)");
                     renderChangingRoom();
                     resetGame();
@@ -749,7 +911,6 @@
             }
         }
 
-        // Restored Halo Function
         function drawHalo(x, y, color) {
             ctx.strokeStyle = color;
             ctx.lineWidth = 3;
@@ -771,7 +932,6 @@
             ctx.save();
             ctx.translate(-cameraX, 0);
 
-            // Draw Portals
             portals.forEach(p => {
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
                 if (p.type === "devil") {
@@ -784,7 +944,6 @@
                 ctx.fill(); ctx.shadowBlur = 0;
             });
 
-            // Draw Bounce Elements
             bouncers.forEach(pad => {
                 if (gameStatus === "realm") {
                     ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000";
@@ -800,7 +959,6 @@
                 }
             });
 
-            // Draw Hooks
             hooks.forEach(hook => {
                 let isTargeted = (hook === targetHook && !player.isSwinging);
                 if (gameStatus === "realm") {
@@ -817,7 +975,6 @@
                 ctx.beginPath(); ctx.arc(hook.x, hook.y, 16, 0, Math.PI * 2); ctx.stroke();
             });
 
-            // Rope styles
             if (player.isSwinging && player.hookedTo) {
                 if (gameStatus === "realm") ctx.strokeStyle = currentRealm === "devil" ? "#fff" : "#000";
                 else if (equippedSkin.includes("devil") || equippedSkin === "denied_angel") ctx.strokeStyle = "#ff0055";
@@ -827,14 +984,12 @@
                 ctx.beginPath(); ctx.moveTo(player.hookedTo.x, player.hookedTo.y); ctx.lineTo(player.x, player.y); ctx.stroke();
             }
 
-            // Exalted Wings (Under Body)
             if (equippedSkin === "exalted_angel") {
                 ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
                 ctx.beginPath(); ctx.moveTo(player.x - 6, player.y); ctx.quadraticCurveTo(player.x - 25, player.y - 18, player.x - 30, player.y - 5); ctx.quadraticCurveTo(player.x - 20, player.y + 12, player.x - 8, player.y + 4); ctx.fill();
                 ctx.beginPath(); ctx.moveTo(player.x + 6, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5); ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
             }
 
-            // Yin Yang Rendering
             if (equippedSkin === "yin_yang") {
                 let flapAnim = Math.sin(flameOffset * 4) * 5; 
                 ctx.fillStyle = "#ffffff";
@@ -851,12 +1006,10 @@
                 ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(player.x - 3, player.y, 2, 0, Math.PI*2); ctx.fill();
                 ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(player.x + 3, player.y, 2, 0, Math.PI*2); ctx.fill();
             } else {
-                // Normal Player Blob
                 if (gameStatus === "realm") ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000";
                 else ctx.fillStyle = SKINS_CONFIG[equippedSkin].color;
                 ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
                 
-                // RESTORED ACCESSORY LOGIC (Over Body)
                 if (gameStatus !== "realm") {
                     if (equippedSkin === "angelic" || equippedSkin === "accurate_angel" || equippedSkin === "exalted_angel" || equippedSkin === "denied_devil") {
                         drawHalo(player.x, player.y, "#ffeaa7");
@@ -919,7 +1072,6 @@
                 }
             }
             
-            // Exalted Devil Spikey Tail (Drawn over everything)
             if (equippedSkin === "exalted_devil" && gameStatus !== "realm") {
                 ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 2.5;
                 ctx.beginPath(); ctx.moveTo(player.x - 8, player.y + 5); ctx.quadraticCurveTo(player.x - 25, player.y + 15, player.x - 20, player.y - 8); ctx.stroke();
