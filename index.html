@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏴‍☠️</text></svg>">
-    <title>Swing!</title>
+    <title>Infinite Stickman Hook - Grand Line Edition</title>
     <style>
         body {
             margin: 0;
@@ -101,7 +101,6 @@
         .auth-btn:hover { opacity: 0.8; }
         #loginBtn { background: #4ecca3; color: #1a1a2e; }
         #registerBtn { background: #00adb5; color: #fff; }
-        #logoutBtn { background: #ff4757; color: #fff; display: none; }
         #welcomeMessage { display: none; font-weight: bold; color: #4ecca3; font-size: 16px; }
         #authInputs { display: flex; gap: 10px; }
 
@@ -133,7 +132,9 @@
         .score-val { color: #4ecca3; }
         .high-val { color: #f9a826; }
         .skin-val { color: #00adb5; text-transform: capitalize; }
-        .realm-val { color: #ff9ff3; text-transform: uppercase; }
+        
+        .clickable-ui { cursor: pointer; transition: color 0.2s; }
+        .clickable-ui:hover { color: #fff; }
         
         #shardDisplay { display: flex; gap: 15px; align-items: center; }
         .shard-counter { display: flex; align-items: center; gap: 5px; }
@@ -161,7 +162,6 @@
         
         #changingRoom { flex: 1.2; }
         #pirateBazaar { flex: 1; }
-        #realmTravel { flex: 0.8; }
         
         .panel-box h3 {
             margin: 0 0 10px 0;
@@ -239,17 +239,6 @@
             border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 10px; width: 100%;
         }
 
-        /* Realm Travel Styles */
-        .realm-btn {
-            padding: 8px; border: 2px solid; border-radius: 6px; font-weight: bold; cursor: pointer;
-            text-align: center; font-size: 11px; margin-bottom: 8px; transition: transform 0.1s;
-        }
-        .realm-btn:active { transform: scale(0.95); }
-        #btnMainRealm { background: #1f4068; color: white; border-color: #4ecca3; }
-        #btnSkyRealm { background: #e0f7fa; color: #006064; border-color: #00bcd4; }
-        #btnUnderworld { background: #212121; color: #ff5252; border-color: #d50000; }
-        .realm-btn.active-realm { box-shadow: 0 0 15px currentColor; }
-
         /* Toast Notification System */
         #toastContainer {
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
@@ -277,7 +266,7 @@
     <div id="main-layout">
         <div id="game-container">
             <div id="authContainer">
-                <div>☁️ Local Save</div>
+                <div>☁️ Cloud Save</div>
                 <div id="authInputs">
                     <input type="text" id="usernameInput" class="auth-input" placeholder="Username">
                     <input type="password" id="passwordInput" class="auth-input" placeholder="Password">
@@ -285,14 +274,12 @@
                     <button id="registerBtn" class="auth-btn">Register</button>
                 </div>
                 <div id="welcomeMessage"></div>
-                <button id="logoutBtn" class="auth-btn">Logout</button>
             </div>
 
             <div id="ui">
                 <div>Score: <span id="scoreDisplay" class="score-val">0</span></div>
-                <div>High: <span id="highScoreDisplay" class="high-val">0</span></div>
-                <div>Realm: <span id="realmDisplay" class="realm-val">Main</span></div>
-                <div>Skin: <span id="skinDisplay" class="skin-val">Default</span></div>
+                <div id="highScoreClickable" class="clickable-ui">High: <span id="highScoreDisplay" class="high-val">0</span></div>
+                <div id="equippedClickable" class="clickable-ui">Skin: <span id="skinDisplay" class="skin-val">Default</span></div>
                 <div id="shardDisplay">
                     <div class="shard-counter">
                         <div class="shard-icon icon-white" title="White Shards"></div>
@@ -318,19 +305,14 @@
                     <h3>🏴‍☠️ Pirate Bazaar</h3>
                     <div class="skins-grid" id="bazaarGrid"></div>
                 </div>
-
-                <div id="realmTravel" class="panel-box">
-                    <h3>🌌 Travel</h3>
-                    <div id="btnMainRealm" class="realm-btn active-realm" onclick="changeRealm('main')">Grand Line (Main)</div>
-                    <div id="btnSkyRealm" class="realm-btn" onclick="changeRealm('sky')">Sky Island (White)</div>
-                    <div id="btnUnderworld" class="realm-btn" onclick="changeRealm('underworld')">Underworld (Black)</div>
-                </div>
             </div>
         </div>
 
         <div id="sidebar">
             <h3>🏆 Leaderboard</h3>
-            <div id="leaderboardList"></div>
+            <div id="leaderboardList">
+                <div style="text-align: center; color: #666; margin-top: 20px;">Loading scores...</div>
+            </div>
         </div>
     </div>
 
@@ -348,163 +330,115 @@
             setTimeout(() => { if (toast.parentElement) toast.remove(); }, duration);
         }
 
-        // --- LOCAL AUTH & SAVE SYSTEM ---
-        let currentUser = localStorage.getItem("active_user") || null;
-        
-        function getSaveKey(key) {
-            return currentUser ? `sh_${currentUser}_${key}` : `sh_guest_${key}`;
-        }
-
+        // --- CLOUDFLARE AUTH & SAVE SYSTEM ---
+        const API_URL = "https://swingworker.xaviersgames.workers.dev";
+        let currentUser = null;
+        let currentPassword = null;
         let unlockedSkinsArray = [];
-        let highScore = 0; let whiteShards = 0; let blackShards = 0; let equippedSkin = "default";
         
-        function loadData() {
-            unlockedSkinsArray = JSON.parse(localStorage.getItem(getSaveKey("skins"))) || ["default"];
-            highScore = parseInt(localStorage.getItem(getSaveKey("high"))) || 0;
-            whiteShards = parseInt(localStorage.getItem(getSaveKey("white"))) || 0;
-            blackShards = parseInt(localStorage.getItem(getSaveKey("black"))) || 0;
-            
-            // Safely fetch equipped skin, fall back to "default" if null or corrupted
-            equippedSkin = localStorage.getItem(getSaveKey("equipped"));
-            if (!equippedSkin || equippedSkin === "null" || equippedSkin === "undefined") {
-                equippedSkin = "default";
+        let highScore = parseInt(localStorage.getItem("stickman_high_score")) || 0;
+        let whiteShards = parseInt(localStorage.getItem("stickman_white_shards")) || 0;
+        let blackShards = parseInt(localStorage.getItem("stickman_black_shards")) || 0;
+        let equippedSkin = localStorage.getItem("stickman_equipped_skin") || "default";
+
+        // Convert old boolean shards to integers
+        if (localStorage.getItem("stickman_black_shard") === "true") { blackShards = Math.max(blackShards, 1); localStorage.removeItem("stickman_black_shard"); }
+        if (localStorage.getItem("stickman_white_shard") === "true") { whiteShards = Math.max(whiteShards, 1); localStorage.removeItem("stickman_white_shard"); }
+
+        // Populate offline unlocks array from localStorage on initial load
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith("stickman_skin_") && localStorage.getItem(key) === "true") {
+                let skinName = key.replace("stickman_skin_", "");
+                if (!unlockedSkinsArray.includes(skinName)) unlockedSkinsArray.push(skinName);
             }
-            
-            document.getElementById("highScoreDisplay").textContent = highScore;
-            updateUI(); renderChangingRoom(); renderBazaar(); updateLocalLeaderboard(); applySkinAbilities();
-        }
+        });
 
-        function saveLocalData() {
-            localStorage.setItem(getSaveKey("high"), highScore);
-            localStorage.setItem(getSaveKey("white"), whiteShards);
-            localStorage.setItem(getSaveKey("black"), blackShards);
-            localStorage.setItem(getSaveKey("equipped"), equippedSkin);
-            localStorage.setItem(getSaveKey("skins"), JSON.stringify(unlockedSkinsArray));
-            updateUI(); updateLocalLeaderboard();
-        }
+        document.getElementById("highScoreDisplay").textContent = highScore;
 
-        // Setup Auth UI
-        const authInputs = document.getElementById("authInputs");
-        const welcomeMessage = document.getElementById("welcomeMessage");
-        const logoutBtn = document.getElementById("logoutBtn");
-
-        function updateAuthUI() {
-            if (currentUser) {
-                authInputs.style.display = "none";
-                welcomeMessage.style.display = "block";
-                logoutBtn.style.display = "block";
-                welcomeMessage.textContent = `Welcome, ${currentUser}!`;
-            } else {
-                authInputs.style.display = "flex";
-                welcomeMessage.style.display = "none";
-                logoutBtn.style.display = "none";
-            }
-            loadData();
-        }
-
-        document.getElementById("registerBtn").onclick = () => {
-            const u = document.getElementById("usernameInput").value.trim();
-            const p = document.getElementById("passwordInput").value;
-            if(!u || !p) return showToast("Enter username and password", 3000, "#ff0055");
-            if(localStorage.getItem("user_pw_" + u)) return showToast("User already exists!", 3000, "#ff0055");
-            
-            localStorage.setItem("user_pw_" + u, p);
-            let users = JSON.parse(localStorage.getItem("all_users") || "[]");
-            users.push(u); localStorage.setItem("all_users", JSON.stringify(users));
-
-            currentUser = u; localStorage.setItem("active_user", u);
-            updateAuthUI();
-            showToast("Registration successful! Auto-logged in.", 3000);
-        };
-
-        document.getElementById("loginBtn").onclick = () => {
-            const u = document.getElementById("usernameInput").value.trim();
-            const p = document.getElementById("passwordInput").value;
-            const savedPw = localStorage.getItem("user_pw_" + u);
-            if(savedPw && savedPw === p) {
-                currentUser = u; localStorage.setItem("active_user", u);
-                updateAuthUI();
-                showToast("Login Successful!", 3000);
-            } else { showToast("Invalid username or password", 3000, "#ff0055"); }
-        };
-
-        logoutBtn.onclick = () => {
-            currentUser = null; localStorage.removeItem("active_user");
-            document.getElementById("usernameInput").value = "";
-            document.getElementById("passwordInput").value = "";
-            updateAuthUI();
-            showToast("Logged out.", 3000, "#ffb142");
-        };
-
-        function updateLocalLeaderboard() {
-            const leaderboardList = document.getElementById("leaderboardList");
-            leaderboardList.innerHTML = "";
-            let users = JSON.parse(localStorage.getItem("all_users") || "[]");
-            
-            let scores = users.map(u => ({
-                username: u, 
-                score: parseInt(localStorage.getItem(`sh_${u}_high`)) || 0 
-            })).sort((a,b) => b.score - a.score).slice(0, 15);
-
-            if (scores.length === 0) return leaderboardList.innerHTML = '<div style="text-align: center; color: #666; margin-top: 20px;">No registered users yet.</div>';
-            
-            scores.forEach((row, index) => {
-                const item = document.createElement("div"); item.className = "leaderboard-item";
-                if(currentUser && row.username === currentUser) { item.style.borderColor = "#4ecca3"; item.style.background = "#232342"; }
-                item.innerHTML = `<div><span class="leaderboard-rank">#${index + 1}</span><span class="leaderboard-name">${row.username}</span></div><span class="leaderboard-score">${row.score}</span>`;
-                leaderboardList.appendChild(item);
-            });
-        }
-
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        
-        let currentRealm = 'main'; 
-        let gameStatus = "playing";
-        let flameOffset = 0;
-
-        let fusionAngle = 0; let fusionSpeed = 0.05; let fusionDistance = 150; let fusionFlash = 0;
-        let angelicDropdownOpen = false; let devilDropdownOpen = false;
-
-        function changeRealm(realm) {
-            currentRealm = realm;
-            document.querySelectorAll('.realm-btn').forEach(btn => btn.classList.remove('active-realm'));
-            
-            if(realm === 'main') { 
-                document.getElementById('btnMainRealm').classList.add('active-realm');
-                canvas.style.background = "#162447"; 
-                document.getElementById("realmDisplay").textContent = "Grand Line";
-            }
-            else if(realm === 'sky') { 
-                document.getElementById('btnSkyRealm').classList.add('active-realm');
-                canvas.style.background = "#87CEEB"; 
-                document.getElementById("realmDisplay").textContent = "Sky Island";
-            }
-            else if(realm === 'underworld') { 
-                document.getElementById('btnUnderworld').classList.add('active-realm');
-                canvas.style.background = "#2b0a0a"; 
-                document.getElementById("realmDisplay").textContent = "Underworld";
-            }
-            resetGame(); 
-        }
-
-        function updateUI() {
-            document.getElementById("whiteShardDisplay").textContent = whiteShards;
-            document.getElementById("blackShardDisplay").textContent = blackShards;
-            let currentConf = SKINS_CONFIG[equippedSkin] || OP_SKINS[equippedSkin] || SKINS_CONFIG.default;
-            document.getElementById("skinDisplay").textContent = currentConf.name;
-            document.getElementById("skinDisplay").style.color = currentConf.color;
-            
-            const fuseBtn = document.getElementById("fuseBtn");
-            if (whiteShards >= 1 && blackShards >= 1) {
-                fuseBtn.style.display = "block";
-                if (checkUnlockStatus("yin_yang")) {
-                    fuseBtn.textContent = "ROLL GACHA (1⬛ + 1⬜)"; fuseBtn.style.background = "linear-gradient(90deg, #ff00ff 50%, #00ffff 50%)"; fuseBtn.style.color = "#1a1a2e";
-                } else {
-                    fuseBtn.textContent = "FUSE SHARDS?"; fuseBtn.style.background = "linear-gradient(90deg, #ffffff 50%, #000000 50%)"; fuseBtn.style.color = "#f9a826";
+        async function fetchLeaderboard() {
+            try {
+                const res = await fetch(`${API_URL}/api/leaderboard`);
+                const data = await res.json();
+                if (data.success) {
+                    const leaderboardList = document.getElementById("leaderboardList");
+                    leaderboardList.innerHTML = "";
+                    if (data.leaderboard.length === 0) return leaderboardList.innerHTML = '<div style="text-align: center; color: #666; margin-top: 20px;">No scores recorded yet!</div>';
+                    data.leaderboard.forEach((row, index) => {
+                        const item = document.createElement("div"); item.className = "leaderboard-item";
+                        if(currentUser && row.username === currentUser) { item.style.borderColor = "#4ecca3"; item.style.background = "#232342"; }
+                        item.innerHTML = `<div><span class="leaderboard-rank">#${index + 1}</span><span class="leaderboard-name">${row.username}</span></div><span class="leaderboard-score">${row.score}</span>`;
+                        leaderboardList.appendChild(item);
+                    });
                 }
-            } else { fuseBtn.style.display = "none"; }
+            } catch (e) { document.getElementById("leaderboardList").innerHTML = '<div style="text-align: center; color: #ff0055; margin-top: 20px;">Failed to load ranks.</div>'; }
         }
+        fetchLeaderboard();
+
+        async function syncCloudSave() {
+            if (!currentUser) return; 
+            const payload = {
+                username: currentUser, password: currentPassword, high_score: highScore, equipped_skin: equippedSkin,
+                white_shards: whiteShards, black_shards: blackShards,
+                unlocked_skins: unlockedSkinsArray
+            };
+            try { await fetch(`${API_URL}/api/save`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); fetchLeaderboard(); } catch (e) {}
+        }
+
+        function unlockSkin(skinKey) {
+            if (!unlockedSkinsArray.includes(skinKey)) unlockedSkinsArray.push(skinKey);
+            localStorage.setItem(`stickman_skin_${skinKey}`, "true");
+            syncCloudSave();
+        }
+
+        document.getElementById("registerBtn").addEventListener("click", async () => {
+            const u = document.getElementById("usernameInput").value.trim(); const p = document.getElementById("passwordInput").value;
+            if(!u || !p) return showToast("Please fill in both username and password.", 3000, "#ff0055");
+            if(u.length > 15) return showToast("Usernames must be 15 characters or less.", 3000, "#ff0055");
+            try {
+                const res = await fetch(`${API_URL}/api/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) });
+                const data = await res.json();
+                if (data.success) showToast("Registration successful! You can now log in.", 4000);
+                else showToast("Error: " + data.error, 4000, "#ff0055");
+            } catch (err) { showToast("Failed to connect to API.", 3000, "#ff0055"); }
+        });
+
+        document.getElementById("loginBtn").addEventListener("click", async () => {
+            const u = document.getElementById("usernameInput").value.trim(); const p = document.getElementById("passwordInput").value;
+            if(!u || !p) return showToast("Please fill in both username and password.", 3000, "#ff0055");
+            try {
+                const res = await fetch(`${API_URL}/api/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) });
+                const data = await res.json();
+                if (data.success) {
+                    currentUser = u; currentPassword = p;
+                    highScore = data.userData.high_score; equippedSkin = data.userData.equipped_skin; unlockedSkinsArray = data.userData.unlocked_skins || [];
+                    
+                    // Fallback to local storage if Cloudflare worker hasn't been updated to handle integer shards yet
+                    whiteShards = data.userData.white_shards !== undefined ? data.userData.white_shards : (parseInt(localStorage.getItem("stickman_white_shards")) || 0);
+                    blackShards = data.userData.black_shards !== undefined ? data.userData.black_shards : (parseInt(localStorage.getItem("stickman_black_shards")) || 0);
+
+                    localStorage.setItem("stickman_high_score", highScore); localStorage.setItem("stickman_equipped_skin", equippedSkin);
+                    localStorage.setItem("stickman_white_shards", whiteShards); localStorage.setItem("stickman_black_shards", blackShards);
+                    
+                    highScoreDisplay.textContent = highScore;
+                    document.getElementById("authInputs").style.display = "none";
+                    const welcome = document.getElementById("welcomeMessage");
+                    welcome.textContent = `👋 Welcome back, ${u}!`; welcome.style.display = "block";
+                    showToast("Login Successful!", 3000);
+                    
+                    applySkinAbilities(); renderChangingRoom(); renderBazaar(); fetchLeaderboard(); 
+                } else showToast("Login failed: " + data.error, 4000, "#ff0055");
+            } catch (err) { showToast("Failed to connect to API.", 3000, "#ff0055"); }
+        });
+
+        // --- Cheats & Codes ---
+        document.getElementById("equippedClickable").addEventListener("click", () => {
+            let code = prompt("ENTER ACCESS CODE:");
+            if (code && code.toUpperCase() === "PT") {
+                player.x = 1000100; player.y = 100; player.vx = 12; player.vy = 0;
+                player.isSwinging = false; player.hookedTo = null; hooks = []; bouncers = []; portals = [];
+                manageEnvironment(); showToast("⏩ WARP SPEED ENGAGED: 100,000 POINTS", 4000, "#00ffff");
+            }
+        });
 
         // --- SKINS DATABASES ---
         const SKINS_CONFIG = {
@@ -540,11 +474,30 @@
             luffy: { name: "Straw Hat", color: "#ff3838", cost: { white: 5, black: 0 }, ability: "Rubber Reach" }, 
             zoro: { name: "Pirate Hunter", color: "#0be881", cost: { white: 8, black: 1 }, ability: "Heavy Slash" }, 
             sanji: { name: "Black Leg", color: "#0fbcf9", cost: { white: 10, black: 2 }, ability: "Sky Walk" }, 
-            nami: { name: "Cat Burglar", color: "#ffa801", cost: { white: 12, black: 3 }, ability: "Shard Magnet" }, 
+            nami: { name: "Cat Burglar", color: "#ffa801", cost: { white: 12, black: 3 }, ability: "Feather Fall" }, 
             law: { name: "Surgeon of Death", color: "#ffffff", splitColor: "#1e272e", cost: { white: 15, black: 5 }, ability: "Room" } 
         };
 
-        // --- RENDER MENUS ---
+        let angelicDropdownOpen = false; let devilDropdownOpen = false;
+
+        function updateUI() {
+            document.getElementById("whiteShardDisplay").textContent = whiteShards;
+            document.getElementById("blackShardDisplay").textContent = blackShards;
+            let currentConf = SKINS_CONFIG[equippedSkin] || OP_SKINS[equippedSkin] || SKINS_CONFIG.default;
+            document.getElementById("skinDisplay").textContent = currentConf.name;
+            document.getElementById("skinDisplay").style.color = currentConf.color;
+            
+            const fuseBtn = document.getElementById("fuseBtn");
+            if (whiteShards >= 1 && blackShards >= 1) {
+                fuseBtn.style.display = "block";
+                if (checkUnlockStatus("yin_yang")) {
+                    fuseBtn.textContent = "ROLL GACHA (1⬛ + 1⬜)"; fuseBtn.style.background = "linear-gradient(90deg, #ff00ff 50%, #00ffff 50%)"; fuseBtn.style.color = "#1a1a2e";
+                } else {
+                    fuseBtn.textContent = "FUSE SHARDS?"; fuseBtn.style.background = "linear-gradient(90deg, #ffffff 50%, #000000 50%)"; fuseBtn.style.color = "#f9a826";
+                }
+            } else { fuseBtn.style.display = "none"; }
+        }
+
         function checkUnlockStatus(key) {
             if (key === "default") return true;
             if (unlockedSkinsArray.includes(key)) return true; 
@@ -596,32 +549,24 @@
                 }
 
                 if (isUnlocked) {
-                    btn.style.cursor = "pointer";
-                    btn.onclick = () => { equippedSkin = key; applySkinAbilities(); saveLocalData(); renderChangingRoom(); renderBazaar(); };
+                    btn.onclick = () => { equippedSkin = key; localStorage.setItem("stickman_equipped_skin", key); applySkinAbilities(); syncCloudSave(); renderChangingRoom(); renderBazaar(); };
                 } else {
                     if (key === "angelic") {
                         btn.style.cursor = "pointer";
                         btn.onclick = () => {
                             let code = prompt("ENTER ACCESS CODE:");
                             if (code && code.toUpperCase() === "ANGEL") {
-                                if (!unlockedSkinsArray.includes("angelic")) unlockedSkinsArray.push("angelic");
-                                
-                                // Auto-unlock denied devil if criteria met
+                                unlockSkin("angelic");
                                 let safeEquipped = equippedSkin || "";
                                 if (safeEquipped.includes("devil") && !unlockedSkinsArray.includes("denied_devil")) {
-                                    unlockedSkinsArray.push("denied_devil"); showToast("😈 UNLOCKED: DENIED DEVIL", 4000, "#ff0055");
+                                    unlockSkin("denied_devil"); showToast("😈 UNLOCKED: DENIED DEVIL", 4000, "#ff0055");
                                 } else {
                                     showToast("😇 ANGELIC UNLOCKED 😇", 4000, "#ffeaa7");
                                 }
-                                saveLocalData(); renderChangingRoom();
-                            } else if (code) {
-                                showToast("❌ INCORRECT PASSWORD", 3000, "#ff0055");
-                            }
+                                renderChangingRoom();
+                            } else if (code) { showToast("❌ INCORRECT PASSWORD", 3000, "#ff0055"); }
                         };
-                    } else {
-                        btn.style.cursor = "not-allowed"; 
-                        btn.onclick = null; 
-                    }
+                    } else { btn.style.cursor = "not-allowed"; btn.onclick = null; }
                 }
                 skinsGrid.appendChild(btn);
             });
@@ -654,7 +599,7 @@
                     const status = document.createElement("div"); status.style.fontSize = "10px"; status.style.color = "#f9a826"; status.textContent = "EQUIPPED"; card.appendChild(status);
                 } else if (isUnlocked) {
                     const btn = document.createElement("button"); btn.className = "equip-btn"; btn.textContent = "EQUIP";
-                    btn.onclick = () => { equippedSkin = key; applySkinAbilities(); saveLocalData(); renderChangingRoom(); renderBazaar(); };
+                    btn.onclick = () => { equippedSkin = key; localStorage.setItem("stickman_equipped_skin", key); applySkinAbilities(); syncCloudSave(); renderChangingRoom(); renderBazaar(); };
                     card.appendChild(btn);
                 } else {
                     const btn = document.createElement("button"); btn.className = "buy-btn";
@@ -664,8 +609,9 @@
                     else {
                         btn.onclick = () => {
                             whiteShards -= skin.cost.white; blackShards -= skin.cost.black;
-                            unlockedSkinsArray.push(key); equippedSkin = key;
-                            applySkinAbilities(); saveLocalData(); renderChangingRoom(); renderBazaar();
+                            localStorage.setItem("stickman_white_shards", whiteShards); localStorage.setItem("stickman_black_shards", blackShards);
+                            equippedSkin = key; localStorage.setItem("stickman_equipped_skin", key);
+                            unlockSkin(key); applySkinAbilities(); renderChangingRoom(); renderBazaar();
                         };
                     }
                     card.appendChild(btn);
@@ -673,6 +619,13 @@
                 bazaarGrid.appendChild(card);
             });
         }
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        let currentRealm = null; 
+        let gameStatus = "playing";
+        let flameOffset = 0;
 
         // --- Gacha / Fusion Trigger ---
         const fuseBtn = document.getElementById("fuseBtn");
@@ -689,13 +642,12 @@
         let currentFriction = BASE_FRICTION;
         let maxHookRange = BASE_HOOK_RANGE;
         let bounceMultiplier = 1;
-        let magnetRadius = 0;
         let momentumBoost = 0.05;
 
         function applySkinAbilities() {
             currentGravity = BASE_GRAVITY; currentFriction = BASE_FRICTION;
             maxHookRange = BASE_HOOK_RANGE; bounceMultiplier = 1;
-            magnetRadius = 0; momentumBoost = 0.05;
+            momentumBoost = 0.05;
 
             let safeEquipped = equippedSkin || "";
             if (safeEquipped === "pink") currentGravity = 0.32;
@@ -707,12 +659,12 @@
             if (safeEquipped === "luffy") maxHookRange += 75;
             if (safeEquipped === "zoro") momentumBoost = 0.14; 
             if (safeEquipped === "sanji") bounceMultiplier = 1.6;
-            if (safeEquipped === "nami") magnetRadius = 150;
-            if (safeEquipped === "law") { currentGravity = 0.3; maxHookRange += 50; magnetRadius = 80; }
+            if (safeEquipped === "nami") currentGravity = 0.32;
+            if (safeEquipped === "law") { currentGravity = 0.3; maxHookRange += 50; }
         }
 
         let player = { x: 100, y: 200, vx: 8, vy: 0, radius: 12, isSwinging: false, hookedTo: null, ropeLength: 0 };
-        let hooks = []; let bouncers = []; let shards = [];
+        let hooks = []; let bouncers = []; let portals = [];
         let targetHook = null; let cameraX = 0; let score = 0; 
 
         function spawnEnvironment() {
@@ -726,18 +678,22 @@
 
                 if (Math.random() < 0.3) bouncers.push({ type: "horizontal", x: nextX - 50, y: 400, width: 80, height: 12 });
                 
-                // SHARD SPAWNING - ONLY IN SPECIFIC REALMS
-                if (currentRealm !== 'main' && Math.random() < 0.5) {
-                    let shardY = nextY + (Math.random() * 150 - 20);
-                    let type = currentRealm === 'sky' ? 'white' : 'black';
-                    shards.push({ x: nextX + 60, y: shardY, type: type, collected: false });
+                // PORTAL SPAWNING (Requires Angel or Devil skin to see them)
+                let safeEquipped = equippedSkin || "";
+                if (gameStatus === "playing" && Math.random() < 0.01) {
+                    if (safeEquipped.includes("devil")) {
+                        portals.push({ type: "devil", x: nextX + 50, y: canvas.height - 20, radius: 30 });
+                    } else if (safeEquipped.includes("angel")) {
+                        portals.push({ type: "angel", x: nextX + 50, y: canvas.height - 20, radius: 30 });
+                    }
                 }
+                
                 lastHook = hooks[hooks.length - 1];
             }
 
             hooks = hooks.filter(h => h.x > cameraX - 100); 
             bouncers = bouncers.filter(b => b.x > cameraX - 100); 
-            shards = shards.filter(s => s.x > cameraX - 100 && !s.collected);
+            portals = portals.filter(p => p.x > cameraX - 100);
         }
 
         function findTarget() {
@@ -749,11 +705,17 @@
             targetHook = closest;
         }
 
+        function enterRealm(type) {
+            gameStatus = "realm"; currentRealm = type; 
+            player.x = 100; player.y = 200; player.vx = 8; player.vy = 0; player.isSwinging = false; player.hookedTo = null;
+            hooks = []; bouncers = []; portals = []; spawnEnvironment();
+        }
+
         function resetGame() {
             player.x = 100; player.y = 200; player.vx = 8; player.vy = 0; player.isSwinging = false; player.hookedTo = null;
-            hooks = []; bouncers = []; shards = []; score = 0; 
+            hooks = []; bouncers = []; portals = []; score = 0; 
             document.getElementById("scoreDisplay").textContent = 0; 
-            spawnEnvironment(); gameStatus = "playing";
+            spawnEnvironment(); gameStatus = "playing"; currentRealm = null; fetchLeaderboard();
         }
 
         // Controls
@@ -783,6 +745,13 @@
             if (!player.isSwinging) findTarget();
             flameOffset += 0.05; 
 
+            if (gameStatus === "playing") {
+                portals.forEach(p => {
+                    let dx = player.x - p.x; let dy = player.y - p.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < p.radius + player.radius) enterRealm(p.type);
+                });
+            }
+
             // Tangent Velocity Projection (Advanced Physics)
             if (player.isSwinging && player.hookedTo) {
                 let h = player.hookedTo; let dx = player.x - h.x; let dy = player.y - h.y; let dist = Math.sqrt(dx * dx + dy * dy);
@@ -805,60 +774,104 @@
                 }
             });
 
-            shards.forEach(s => {
-                if (s.collected) return;
-                let dx = player.x - s.x; let dy = player.y - s.y; let dist = Math.sqrt(dx*dx + dy*dy);
-                
-                if (magnetRadius > 0 && dist < magnetRadius && dist > player.radius) {
-                    s.x += dx * 0.15; s.y += dy * 0.15; 
-                }
-                if (dist < player.radius + 10) {
-                    s.collected = true; if (s.type === 'white') whiteShards++; else blackShards++;
-                    updateUI(); renderBazaar(); saveLocalData();
-                }
-            });
-
-            cameraX = player.x - 250;
-            score = Math.floor(player.x / 10) - 10; document.getElementById("scoreDisplay").textContent = score;
-
-            // Hint Logic & Unlocks
-            if (score >= 5000 && !localStorage.getItem(getSaveKey("hint_5000"))) {
-                showToast("🔒 A secret skin requires a password...", 5000, "#f9a826");
-                localStorage.setItem(getSaveKey("hint_5000"), "true");
-            }
-            if (score >= 10000 && !localStorage.getItem(getSaveKey("hint_10000"))) {
-                showToast("🗝️ The secret password is: ANGEL", 6000, "#f9a826");
-                localStorage.setItem(getSaveKey("hint_10000"), "true");
-            }
+            cameraX = player.x - 200;
             
-            let safeEquipped = equippedSkin || "";
-            if (score >= 10000) {
-                if (safeEquipped.includes("angel") && !unlockedSkinsArray.includes("exalted_angel")) { 
-                    unlockedSkinsArray.push("exalted_angel"); saveLocalData(); showToast("✨ UNLOCKED: EXALTED ANGEL!", 5000, "#ffeaa7"); renderChangingRoom(); 
+            if (gameStatus === "realm") {
+                let realmScore = Math.floor((player.x - 100) / 10); document.getElementById("scoreDisplay").textContent = `REALM: ${realmScore} / 1000`;
+                if (realmScore >= 1000) {
+                    if (currentRealm === "devil") { 
+                        blackShards++; localStorage.setItem("stickman_black_shards", blackShards);
+                        showToast("⬛ COLLECTED A BLACK SHARD", 4000, "#000"); 
+                    } else if (currentRealm === "angel") { 
+                        whiteShards++; localStorage.setItem("stickman_white_shards", whiteShards);
+                        showToast("⬜ COLLECTED A WHITE SHARD", 4000, "#fff"); 
+                    }
+                    syncCloudSave(); renderChangingRoom(); renderBazaar(); resetGame(); 
                 }
-                if (safeEquipped.includes("devil") && !unlockedSkinsArray.includes("exalted_devil")) { 
-                    unlockedSkinsArray.push("exalted_devil"); saveLocalData(); showToast("🔥 UNLOCKED: EXALTED DEVIL!", 5000, "#ff0055"); renderChangingRoom(); 
+            } else {
+                score = Math.floor(player.x / 10) - 10; document.getElementById("scoreDisplay").textContent = score;
+                
+                // Hint Logic & Unlocks
+                if (score >= 5000 && !localStorage.getItem("stickman_hint_5000")) {
+                    showToast("🔒 A secret skin requires a password...", 5000, "#f9a826");
+                    localStorage.setItem("stickman_hint_5000", "true");
+                }
+                if (score >= 10000 && !localStorage.getItem("stickman_hint_10000")) {
+                    showToast("🗝️ The secret password is: ANGEL", 6000, "#f9a826");
+                    localStorage.setItem("stickman_hint_10000", "true");
+                }
+                
+                let safeEquipped = equippedSkin || "";
+                if (score >= 10000) {
+                    if (safeEquipped.includes("angel") && !unlockedSkinsArray.includes("exalted_angel")) { 
+                        unlockSkin("exalted_angel"); showToast("✨ UNLOCKED: EXALTED ANGEL!", 5000, "#ffeaa7"); renderChangingRoom(); 
+                    }
+                    if (safeEquipped.includes("devil") && !unlockedSkinsArray.includes("exalted_devil")) { 
+                        unlockSkin("exalted_devil"); showToast("🔥 UNLOCKED: EXALTED DEVIL!", 5000, "#ff0055"); renderChangingRoom(); 
+                    }
                 }
             }
 
-            if (player.y > canvas.height + 200) {
-                gameStatus = "lost"; let needsSave = false;
-                if (score > highScore) { highScore = score; document.getElementById("highScoreDisplay").textContent = highScore; needsSave = true; }
+            if (player.y > canvas.height + 140) {
+                if (gameStatus === "realm") { showToast("THE REALM HAS REJECTED YOU.", 4000, "#ff0055"); resetGame(); return; }
+
+                gameStatus = "lost"; let needsCloudSync = false;
+                if (score > highScore) { highScore = score; localStorage.setItem("stickman_high_score", highScore); highScoreDisplay.textContent = highScore; needsCloudSync = true; }
                 
-                if (score < 0 && !unlockedSkinsArray.includes("devil")) { unlockedSkinsArray.push("devil"); showToast("👹 UNLOCKED: THE DEVIL SKIN!", 5000, "#ff0055"); needsSave = true; }
-                if (score < 0 && safeEquipped.includes("angel") && !unlockedSkinsArray.includes("denied_angel")) { unlockedSkinsArray.push("denied_angel"); showToast("🥀 UNLOCKED: DENIED ANGEL", 5000, "#ff0055"); needsSave = true; }
+                let safeEquipped = equippedSkin || "";
+                if (score < 0 && !unlockedSkinsArray.includes("devil")) { unlockSkin("devil"); showToast("👹 UNLOCKED: THE DEVIL SKIN!", 5000, "#ff0055"); needsCloudSync = true; }
+                if (score < 0 && safeEquipped.includes("angel") && !unlockedSkinsArray.includes("denied_angel")) { unlockSkin("denied_angel"); showToast("🥀 UNLOCKED: DENIED ANGEL", 5000, "#ff0055"); needsCloudSync = true; }
                 
                 if (safeEquipped.includes("angel")) {
-                    let angelDeaths = parseInt(localStorage.getItem(getSaveKey("angelic_deaths")) || "0") + 1; localStorage.setItem(getSaveKey("angelic_deaths"), angelDeaths);
-                    if (angelDeaths >= 20 && !unlockedSkinsArray.includes("accurate_angel")) { unlockedSkinsArray.push("accurate_angel"); showToast("👁️ UNLOCKED: ACCURATE ANGEL", 5000, "#ffeaa7"); needsSave = true; }
+                    let angelDeaths = parseInt(localStorage.getItem("stickman_angelic_deaths") || "0") + 1; localStorage.setItem("stickman_angelic_deaths", angelDeaths);
+                    if (angelDeaths >= 20 && !unlockedSkinsArray.includes("accurate_angel")) { unlockSkin("accurate_angel"); showToast("👁️ UNLOCKED: ACCURATE ANGEL", 5000, "#ffeaa7"); needsCloudSync = true; }
                 }
                 if (safeEquipped.includes("devil")) {
-                    let devilDeaths = parseInt(localStorage.getItem(getSaveKey("devil_deaths")) || "0") + 1; localStorage.setItem(getSaveKey("devil_deaths"), devilDeaths);
-                    if (devilDeaths >= 20 && !unlockedSkinsArray.includes("accurate_devil")) { unlockedSkinsArray.push("accurate_devil"); showToast("🎩 UNLOCKED: ACCURATE DEVIL", 5000, "#d4af37"); needsSave = true; }
+                    let devilDeaths = parseInt(localStorage.getItem("stickman_devil_deaths") || "0") + 1; localStorage.setItem("stickman_devil_deaths", devilDeaths);
+                    if (devilDeaths >= 20 && !unlockedSkinsArray.includes("accurate_devil")) { unlockSkin("accurate_devil"); showToast("🎩 UNLOCKED: ACCURATE DEVIL", 5000, "#d4af37"); needsCloudSync = true; }
                 }
 
-                if (needsSave) saveLocalData();
+                if (needsCloudSync) syncCloudSave(); renderChangingRoom();
             }
+        }
+
+        function drawDevilBackground() {
+            let baseGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            baseGrad.addColorStop(0, "#1a0000"); baseGrad.addColorStop(0.6, "#8b0000"); baseGrad.addColorStop(1, "#ff0000"); 
+            ctx.fillStyle = baseGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "rgba(255, 69, 0, 0.4)"; 
+            for (let i = 0; i < canvas.width + 100; i += 40) {
+                let flameHeight = 100 + Math.sin((i / 20) + (flameOffset * 3)) * 40;
+                ctx.beginPath(); ctx.moveTo(i, canvas.height); ctx.quadraticCurveTo(i + 20, canvas.height - flameHeight, i + 40, canvas.height); ctx.fill();
+            }
+        }
+
+        function drawAngelicBackground() {
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, "#00a8ff"); skyGrad.addColorStop(0.6, "#9c88ff"); skyGrad.addColorStop(1, "#f5f6fa"); 
+            ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let sunX = canvas.width / 2; let sunY = -50; ctx.fillStyle = "rgba(255, 255, 255, 0.15)"; 
+            for (let i = 0; i < Math.PI * 2; i += Math.PI / 8) { 
+                ctx.beginPath(); ctx.moveTo(sunX, sunY); ctx.arc(sunX, sunY, 1000, i - 0.1, i + 0.1); ctx.fill(); 
+            }
+        }
+
+        function drawRealmBackground() {
+            ctx.fillStyle = currentRealm === "devil" ? "#111" : "#eee"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.save(); ctx.translate(-cameraX, 0); ctx.strokeStyle = currentRealm === "devil" ? "#333" : "#ccc"; ctx.lineWidth = 2;
+            let startGridX = Math.floor(cameraX / 100) * 100;
+            for (let i = startGridX; i < startGridX + canvas.width + 200; i += 80) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.quadraticCurveTo(i + Math.sin((flameOffset*3) + i)*20, canvas.height/2, i, canvas.height); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawDefaultBackground() {
+            ctx.fillStyle = "#162447"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.save(); ctx.translate(-cameraX, 0); ctx.strokeStyle = "#1f4068"; ctx.lineWidth = 1;
+            let startGridX = Math.floor(cameraX / 100) * 100;
+            for (let i = startGridX; i < startGridX + canvas.width + 200; i += 100) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
+            ctx.restore();
         }
 
         function drawFusionCutscene() {
@@ -872,6 +885,8 @@
                 fusionFlash += 5; 
                 if (fusionFlash > 255) {
                     whiteShards--; blackShards--;
+                    localStorage.setItem("stickman_white_shards", whiteShards); localStorage.setItem("stickman_black_shards", blackShards);
+                    
                     let unlockedSkinKey = "yin_yang";
                     let alertMsg = "☯️ PERFECT BALANCE ACHIEVED: YIN YANG UNLOCKED ☯️";
 
@@ -883,38 +898,32 @@
                             unlockedSkinKey = available[Math.floor(Math.random() * available.length)];
                             alertMsg = `🎉 GACHA ROLL SUCCESS! 🎉\nCost: 1⬛ + 1⬜\nUnlocked: ${SKINS_CONFIG[unlockedSkinKey].name.toUpperCase()}`;
                         } else {
-                            highScore += 5000; 
+                            highScore += 5000; localStorage.setItem("stickman_high_score", highScore);
                             alertMsg = "💎 GACHA MAXED OUT! 💎\nCost: 1⬛ + 1⬜\nYou received 5000 Bonus Points instead!";
                             unlockedSkinKey = equippedSkin; 
                         }
                     }
                     
                     if (unlockedSkinKey !== equippedSkin) {
-                        equippedSkin = unlockedSkinKey; 
-                        if (!unlockedSkinsArray.includes(unlockedSkinKey)) unlockedSkinsArray.push(unlockedSkinKey);
+                        equippedSkin = unlockedSkinKey; localStorage.setItem("stickman_equipped_skin", unlockedSkinKey); unlockSkin(unlockedSkinKey); 
                     }
                     
-                    saveLocalData();
                     showToast(alertMsg, 5000, "#00ffff"); 
-                    renderChangingRoom(); renderBazaar();
-                    resetGame(); 
+                    renderChangingRoom(); renderBazaar(); resetGame(); 
                     return;
                 }
             } else {
-                let bx = cx + Math.cos(fusionAngle) * fusionDistance; 
-                let by = cy + Math.sin(fusionAngle) * fusionDistance;
+                let bx = cx + Math.cos(fusionAngle) * fusionDistance; let by = cy + Math.sin(fusionAngle) * fusionDistance;
                 ctx.fillStyle = "#000"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; 
                 ctx.beginPath(); ctx.arc(bx, by, 15, 0, Math.PI*2); ctx.fill(); ctx.stroke();
                 
-                let wx = cx + Math.cos(fusionAngle + Math.PI) * fusionDistance; 
-                let wy = cy + Math.sin(fusionAngle + Math.PI) * fusionDistance;
+                let wx = cx + Math.cos(fusionAngle + Math.PI) * fusionDistance; let wy = cy + Math.sin(fusionAngle + Math.PI) * fusionDistance;
                 ctx.fillStyle = "#fff"; ctx.strokeStyle = "#000"; ctx.lineWidth = 2; 
                 ctx.beginPath(); ctx.arc(wx, wy, 15, 0, Math.PI*2); ctx.fill(); ctx.stroke();
             }
             
             if (fusionFlash > 0) { 
-                ctx.fillStyle = `rgba(255, 255, 255, ${fusionFlash / 255})`; 
-                ctx.fillRect(0, 0, canvas.width, canvas.height); 
+                ctx.fillStyle = `rgba(255, 255, 255, ${fusionFlash / 255})`; ctx.fillRect(0, 0, canvas.width, canvas.height); 
             }
         }
 
@@ -922,68 +931,67 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
             if (gameStatus === "fusion") { drawFusionCutscene(); return; }
 
-            ctx.save(); ctx.translate(-cameraX, 0); 
-            
-            if (currentRealm === 'main') ctx.strokeStyle = "rgba(44, 62, 80, 0.5)";
-            else if (currentRealm === 'sky') ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-            else ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
-            
-            ctx.lineWidth = 1;
-            let startGridX = Math.floor(cameraX / 100) * 100;
-            for (let i = startGridX; i < startGridX + canvas.width + 200; i += 100) { 
-                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); 
-            }
-            
-            bouncers.forEach(pad => {
-                ctx.fillStyle = "#ff4757"; ctx.fillRect(pad.x, pad.y, pad.width, pad.height);
-                ctx.fillStyle = "#ffa502"; ctx.fillRect(pad.x + 4, pad.y + 2, pad.width - 8, 4);
+            if (gameStatus === "realm") drawRealmBackground();
+            else if (equippedSkin.includes("devil")) drawDevilBackground();
+            else if (equippedSkin.includes("angel")) drawAngelicBackground();
+            else drawDefaultBackground();
+
+            ctx.save(); ctx.translate(-cameraX, 0);
+
+            portals.forEach(p => {
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+                if (p.type === "devil") { ctx.fillStyle = "rgba(0, 191, 255, 0.6)"; ctx.shadowColor = "#00bfff"; ctx.shadowBlur = 20; } 
+                else { ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; ctx.shadowColor = "#fff"; ctx.shadowBlur = 20; }
+                ctx.fill(); ctx.shadowBlur = 0;
             });
 
-            hooks.forEach(h => {
-                let isTarget = (h === targetHook && !player.isSwinging);
-                let idleColor = currentRealm === 'sky' ? "#fff" : (currentRealm === 'underworld' ? "#444" : "#747d8c");
-                let targetColor = currentRealm === 'sky' ? "#00bcd4" : (currentRealm === 'underworld' ? "#ff5252" : "#4ecca3");
-                
-                ctx.fillStyle = isTarget ? targetColor : idleColor;
-                ctx.beginPath(); ctx.arc(h.x, h.y, 6, 0, Math.PI * 2); ctx.fill();
-                
-                ctx.strokeStyle = isTarget ? targetColor : idleColor; 
-                ctx.globalAlpha = 0.4;
-                ctx.lineWidth = isTarget ? 3 : 1;
-                ctx.beginPath(); ctx.arc(h.x, h.y, 14, 0, Math.PI * 2); ctx.stroke();
-                ctx.globalAlpha = 1.0;
-                
-                if (isTarget && !player.isSwinging) {
-                    ctx.strokeStyle = targetColor; ctx.globalAlpha = 0.2;
-                    ctx.beginPath(); ctx.arc(player.x, player.y, maxHookRange, 0, Math.PI*2); ctx.stroke();
-                    ctx.globalAlpha = 1.0;
+            bouncers.forEach(pad => {
+                if (gameStatus === "realm") { ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000"; ctx.fillRect(pad.x, pad.y, pad.width, pad.height); } 
+                else {
+                    if (pad.type === "horizontal") {
+                        ctx.fillStyle = "#e94560"; ctx.fillRect(pad.x, pad.y, pad.width, pad.height);
+                        ctx.fillStyle = "#ffdd59"; ctx.fillRect(pad.x + 4, pad.y + 2, pad.width - 8, 3);
+                    } else if (pad.type === "vertical") {
+                        ctx.fillStyle = "#00ffcc"; ctx.fillRect(pad.x, pad.y, pad.width, pad.height);
+                        ctx.fillStyle = "#ffffff"; ctx.fillRect(pad.x + 2, pad.y + 4, pad.width - 4, pad.height - 8);
+                    }
                 }
             });
 
+            hooks.forEach(hook => {
+                let isTargeted = (hook === targetHook && !player.isSwinging);
+                if (gameStatus === "realm") { ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000"; } 
+                else {
+                    if (equippedSkin.includes("devil") || equippedSkin === "denied_angel") ctx.fillStyle = "#ff0055";
+                    else if (equippedSkin.includes("angel")) ctx.fillStyle = "#fab1a0";
+                    else if (SKINS_CONFIG[equippedSkin] && SKINS_CONFIG[equippedSkin].splitColor) ctx.fillStyle = "#ffffff";
+                    else ctx.fillStyle = isTargeted ? "#4ecca3" : "#e94560";
+                }
+                ctx.beginPath(); ctx.arc(hook.x, hook.y, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = isTargeted ? "rgba(255, 255, 255, 0.8)" : "rgba(100, 100, 100, 0.3)"; ctx.lineWidth = isTargeted ? 4 : 2;
+                ctx.beginPath(); ctx.arc(hook.x, hook.y, 16, 0, Math.PI * 2); ctx.stroke();
+            });
+
             if (player.isSwinging && player.hookedTo) {
-                let ropeColor = currentRealm === 'sky' ? "rgba(0, 0, 0, 0.5)" : "rgba(255, 255, 255, 0.8)";
-                ctx.strokeStyle = ropeColor; ctx.lineWidth = 2.5; 
-                ctx.beginPath(); ctx.moveTo(player.hookedTo.x, player.hookedTo.y); ctx.lineTo(player.x, player.y); ctx.stroke();
+                if (gameStatus === "realm") ctx.strokeStyle = currentRealm === "devil" ? "#fff" : "#000";
+                else if (equippedSkin.includes("devil") || equippedSkin === "denied_angel") ctx.strokeStyle = "#ff0055";
+                else if (equippedSkin.includes("angel")) ctx.strokeStyle = "#ffeaa7";
+                else ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(player.hookedTo.x, player.hookedTo.y); ctx.lineTo(player.x, player.y); ctx.stroke();
             }
 
-            shards.forEach(s => {
-                if (s.collected) return;
-                ctx.fillStyle = s.type === 'white' ? "#ffffff" : "#000000";
-                ctx.strokeStyle = s.type === 'white' ? "#cccccc" : "#ff3838";
-                ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.moveTo(s.x, s.y - 6); ctx.lineTo(s.x + 6, s.y); ctx.lineTo(s.x, s.y + 6); ctx.lineTo(s.x - 6, s.y); ctx.closePath();
-                ctx.fill(); ctx.stroke();
-            });
+            if (equippedSkin === "exalted_angel") {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+                ctx.beginPath(); ctx.moveTo(player.x - 6, player.y); ctx.quadraticCurveTo(player.x - 25, player.y - 18, player.x - 30, player.y - 5); ctx.quadraticCurveTo(player.x - 20, player.y + 12, player.x - 8, player.y + 4); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(player.x + 6, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5); ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
+            }
 
             let safeEquipped = equippedSkin || "default";
             let skinInfo = SKINS_CONFIG[safeEquipped] || OP_SKINS[safeEquipped] || SKINS_CONFIG.default;
-            
-            if (safeEquipped === "og_stickman") { ctx.shadowColor = "#ff00ff"; ctx.shadowBlur = 15; }
-            
-            // CUSTOM GACHA SHAPES
+
+            // GACHA SPLIT SKINS LOGIC (Unique Custom Shapes)
             if (skinInfo.splitColor) {
                 let colorLeft = skinInfo.color || "#ffffff";
                 let colorRight = skinInfo.splitColor || "#000000";
@@ -1035,57 +1043,88 @@
                     ctx.beginPath(); ctx.moveTo(-player.radius, -player.radius/2); ctx.lineTo(player.radius, -player.radius/2); ctx.stroke();
                     ctx.beginPath(); ctx.moveTo(-player.radius, player.radius/2); ctx.lineTo(player.radius, player.radius/2); ctx.stroke();
                     ctx.beginPath(); ctx.moveTo(0, -player.radius-2); ctx.lineTo(0, player.radius+2); ctx.stroke();
+                    
                 } else {
                     ctx.fillStyle = colorLeft; ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI / 2, Math.PI * 1.5); ctx.fill();
                     ctx.fillStyle = colorRight; ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI * 1.5, Math.PI / 2); ctx.fill();
                 }
                 ctx.restore();
             } else {
-                ctx.fillStyle = skinInfo.color;
+                // NORMAL SKINS
+                if (gameStatus === "realm") ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000";
+                else ctx.fillStyle = skinInfo.color;
+                
+                if (safeEquipped === "og_stickman") { ctx.shadowColor = "#ff00ff"; ctx.shadowBlur = 15; }
                 ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
                 ctx.shadowBlur = 0;
-
+                
+                // EXQUISITE OG DETAILS
                 if (safeEquipped === "og_stickman") {
-                    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(player.x + 5, player.y - 3, 4, 0, Math.PI*2); ctx.stroke();
+                    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.arc(player.x + 5, player.y - 3, 4, 0, Math.PI*2); ctx.stroke();
                     ctx.beginPath(); ctx.moveTo(player.x + 9, player.y - 3); ctx.lineTo(player.x + 14, player.y + 4); ctx.stroke();
-                    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x - 6, player.y + 3); ctx.lineTo(player.x - 6, player.y + 9); ctx.fill();
+                    
+                    ctx.fillStyle = "#fff";
+                    ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x - 6, player.y + 3); ctx.lineTo(player.x - 6, player.y + 9); ctx.fill();
                     ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x + 6, player.y + 3); ctx.lineTo(player.x + 6, player.y + 9); ctx.fill();
-                    ctx.fillStyle = "#111"; ctx.fillRect(player.x - 10, player.y - 12, 20, 2); ctx.fillRect(player.x - 6, player.y - 24, 12, 12);
+                    
+                    ctx.fillStyle = "#111";
+                    ctx.fillRect(player.x - 10, player.y - 12, 20, 2);
+                    ctx.fillRect(player.x - 6, player.y - 24, 12, 12);
                     ctx.fillStyle = "#FFD700"; ctx.fillRect(player.x - 6, player.y - 15, 12, 3);
                 }
-
-                if (safeEquipped === "angelic" || safeEquipped === "accurate_angel" || safeEquipped === "exalted_angel" || safeEquipped === "denied_devil") drawHalo(player.x, player.y, "#ffeaa7");
-                if (safeEquipped === "denied_angel") drawHalo(player.x, player.y, "#ff0055");
                 
-                if (safeEquipped === "devil" || safeEquipped === "exalted_devil") {
-                    ctx.fillStyle = "#ff0055"; ctx.beginPath(); ctx.moveTo(player.x - 8, player.y - 8); ctx.lineTo(player.x - 14, player.y - 18); ctx.lineTo(player.x - 2, player.y - 11); ctx.fill();
-                    ctx.beginPath(); ctx.moveTo(player.x + 8, player.y - 8); ctx.lineTo(player.x + 14, player.y - 18); ctx.lineTo(player.x + 2, player.y - 11); ctx.fill();
-                }
-                if (safeEquipped === "denied_devil") {
-                    ctx.fillStyle = "#cc0044"; ctx.beginPath(); ctx.ellipse(player.x - 10, player.y + 2, 3, 9, Math.PI/4, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.ellipse(player.x + 10, player.y + 2, 3, 9, -Math.PI/4, 0, Math.PI*2); ctx.fill();
-                    ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                }
-                if (safeEquipped === "accurate_devil") {
-                    ctx.fillStyle = "#111111"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI); ctx.fill();
-                    ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.moveTo(player.x - 5, player.y - 3); ctx.lineTo(player.x + 5, player.y - 3); ctx.lineTo(player.x, player.y + 4); ctx.fill();
-                    ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.moveTo(player.x - 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x - 4, player.y + 2); ctx.fill();
-                    ctx.beginPath(); ctx.moveTo(player.x + 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x + 4, player.y + 2); ctx.fill();
-                    ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(player.x + 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
-                }
-                if (safeEquipped === "exalted_devil") {
-                    ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(player.x + 8, player.y + 6); ctx.lineTo(player.x + 22, player.y - 12); ctx.stroke(); 
-                    ctx.beginPath(); ctx.moveTo(player.x + 16, player.y - 9); ctx.lineTo(player.x + 19, player.y - 16); ctx.lineTo(player.x + 26, player.y - 12); ctx.stroke(); 
-                    ctx.fillStyle = "#8b0000"; ctx.beginPath(); ctx.arc(player.x + 23, player.y - 13, 1.2, 0, Math.PI*2); ctx.fill(); 
-                    ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                }
-                if (safeEquipped === "accurate_angel") {
-                    ctx.fillStyle = "#000000"; let eyePos = [[-5, -4], [0, -6], [5, -4], [-4, 3], [4, 3], [0, 6]];
-                    eyePos.forEach(p => { ctx.beginPath(); ctx.arc(player.x + p[0], player.y + p[1], 1.8, 0, Math.PI*2); ctx.fill(); });
+                if (gameStatus !== "realm") {
+                    if (safeEquipped === "angelic" || safeEquipped === "accurate_angel" || safeEquipped === "exalted_angel" || safeEquipped === "denied_devil") drawHalo(player.x, player.y, "#ffeaa7");
+                    if (safeEquipped === "denied_angel") drawHalo(player.x, player.y, "#ff0055");
+                    
+                    if (safeEquipped === "devil" || safeEquipped === "exalted_devil") {
+                        ctx.fillStyle = "#ff0055";
+                        ctx.beginPath(); ctx.moveTo(player.x - 8, player.y - 8); ctx.lineTo(player.x - 14, player.y - 18); ctx.lineTo(player.x - 2, player.y - 11); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(player.x + 8, player.y - 8); ctx.lineTo(player.x + 14, player.y - 18); ctx.lineTo(player.x + 2, player.y - 11); ctx.fill();
+                    }
+                    if (safeEquipped === "denied_devil") {
+                        ctx.fillStyle = "#cc0044";
+                        ctx.beginPath(); ctx.ellipse(player.x - 10, player.y + 2, 3, 9, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.ellipse(player.x + 10, player.y + 2, 3, 9, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                    }
+                    if (safeEquipped === "accurate_devil") {
+                        ctx.fillStyle = "#111111"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI); ctx.fill();
+                        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.moveTo(player.x - 5, player.y - 3); ctx.lineTo(player.x + 5, player.y - 3); ctx.lineTo(player.x, player.y + 4); ctx.fill();
+                        ctx.fillStyle = "#ff0000";
+                        ctx.beginPath(); ctx.moveTo(player.x - 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x - 4, player.y + 2); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(player.x + 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x + 4, player.y + 2); ctx.fill();
+                        ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
+                    }
+                    if (safeEquipped === "exalted_devil") {
+                        ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 1.5;
+                        ctx.beginPath(); ctx.moveTo(player.x + 8, player.y + 6); ctx.lineTo(player.x + 22, player.y - 12); ctx.stroke(); 
+                        ctx.beginPath(); ctx.moveTo(player.x + 16, player.y - 9); ctx.lineTo(player.x + 19, player.y - 16); ctx.lineTo(player.x + 26, player.y - 12); ctx.stroke(); 
+                        ctx.fillStyle = "#8b0000"; ctx.beginPath(); ctx.arc(player.x + 23, player.y - 13, 1.2, 0, Math.PI*2); ctx.fill(); 
+                        ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                    }
+                    if (safeEquipped === "denied_angel") {
+                        ctx.fillStyle = "#ff0055"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                    }
+                    if (safeEquipped === "accurate_angel") {
+                        ctx.fillStyle = "#000000";
+                        let eyePos = [[-5, -4], [0, -6], [5, -4], [-4, 3], [4, 3], [0, 6]];
+                        eyePos.forEach(p => { ctx.beginPath(); ctx.arc(player.x + p[0], player.y + p[1], 1.8, 0, Math.PI*2); ctx.fill(); });
+                    }
                 }
             }
             
+            if (safeEquipped === "exalted_devil" && gameStatus !== "realm") {
+                ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.moveTo(player.x - 8, player.y + 5); ctx.quadraticCurveTo(player.x - 25, player.y + 15, player.x - 20, player.y - 8); ctx.stroke();
+                ctx.fillStyle = "#8b0000"; ctx.beginPath(); ctx.moveTo(player.x - 20, player.y - 10); ctx.lineTo(player.x - 25, player.y - 4); ctx.lineTo(player.x - 15, player.y - 4); ctx.fill();
+            }
+
             if (safeEquipped === "law" && player.isSwinging) {
                 ctx.strokeStyle = "rgba(0, 206, 209, 0.4)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(player.x, player.y, 80, 0, Math.PI*2); ctx.stroke();
             }
@@ -1094,20 +1133,18 @@
 
             if (gameStatus === "lost") {
                 ctx.fillStyle = "rgba(15, 15, 26, 0.85)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#e94560"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center";
-                ctx.fillText("WIPED OUT", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillStyle = score < 0 ? "#ff0055" : "#e94560";
+                ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center";
+                ctx.fillText(score < 0 ? "UNDERWORLD DESCENT" : "GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
                 ctx.font = "20px sans-serif"; ctx.fillStyle = "#fff";
-                ctx.fillText(`Distance: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+                ctx.fillText(`Final Score: ${score} points`, canvas.width / 2, canvas.height / 2 + 20);
                 ctx.fillStyle = "#888"; ctx.font = "16px sans-serif";
-                ctx.fillText("Press Space or Click to try again", canvas.width / 2, canvas.height / 2 + 60);
+                ctx.fillText("Press Space or Click the arena to snap back in!", canvas.width / 2, canvas.height / 2 + 65);
             }
         }
 
-        updateAuthUI(); 
-        // Initial setup
         applySkinAbilities(); spawnEnvironment();
-        
-        function loop() { update(); draw(); requestAnimationFrame(loop); } 
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
         loop();
     </script>
 </body>
