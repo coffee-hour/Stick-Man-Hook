@@ -700,13 +700,30 @@
                 }
             });
 
+            // --- ADVANCED TANGENT PHYSICS ---
             if (player.isSwinging && player.hookedTo) {
-                let hook = player.hookedTo; let dx = player.x - hook.x; let dy = player.y - hook.y; let currentDist = Math.sqrt(dx * dx + dy * dy);
-                if (currentDist > player.ropeLength) {
-                    let angle = Math.atan2(dy, dx);
-                    player.x = hook.x + Math.cos(angle) * player.ropeLength; player.y = hook.y + Math.sin(angle) * player.ropeLength;
-                    let nx = dx / currentDist; let ny = dy / currentDist; let velAlongNormal = player.vx * nx + player.vy * ny;
-                    player.vx -= velAlongNormal * nx; player.vy -= velAlongNormal * ny; player.vx += Math.sin(angle) * 0.14; 
+                let h = player.hookedTo; 
+                let dx = player.x - h.x; 
+                let dy = player.y - h.y; 
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist > player.ropeLength) {
+                    player.x = h.x + (dx / dist) * player.ropeLength; 
+                    player.y = h.y + (dy / dist) * player.ropeLength;
+                    
+                    let nx = dx / dist; 
+                    let ny = dy / dist; 
+                    let vDotN = player.vx * nx + player.vy * ny;
+                    
+                    if (vDotN > 0) { 
+                        player.vx -= vDotN * nx; 
+                        player.vy -= vDotN * ny; 
+                    }
+                    
+                    let tangentX = -ny; 
+                    let tangentY = nx; 
+                    let speedTangent = player.vx * tangentX + player.vy * tangentY;
+                    player.vx += tangentX * 0.05 * Math.sign(speedTangent); 
                 }
             }
 
@@ -932,50 +949,92 @@
                 ctx.beginPath(); ctx.moveTo(player.x + 6, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5); ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
             }
 
-            // GACHA SPLIT SKINS LOGIC (Redesigned)
+            // GACHA SPLIT SKINS LOGIC (Unique Custom Shapes)
             if (SKINS_CONFIG[equippedSkin] && SKINS_CONFIG[equippedSkin].splitColor) {
                 let colorLeft = SKINS_CONFIG[equippedSkin].color || "#ffffff";
                 let colorRight = SKINS_CONFIG[equippedSkin].splitColor || "#000000";
 
                 ctx.save();
                 ctx.translate(player.x, player.y);
-                ctx.rotate(flameOffset * 2); // Rotate the whole player model for these skins
+                ctx.rotate(flameOffset * 2); 
 
                 if (equippedSkin === "yin_yang") {
-                    // True Yin Yang Design
                     ctx.fillStyle = colorLeft;
                     ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI / 2, Math.PI * 1.5); ctx.fill();
-                    
                     ctx.fillStyle = colorRight;
                     ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI * 1.5, Math.PI / 2); ctx.fill();
-                    
                     ctx.fillStyle = colorLeft;
                     ctx.beginPath(); ctx.arc(0, -player.radius / 2, player.radius / 2, 0, Math.PI * 2); ctx.fill();
-                    
                     ctx.fillStyle = colorRight;
                     ctx.beginPath(); ctx.arc(0, player.radius / 2, player.radius / 2, 0, Math.PI * 2); ctx.fill();
-                    
                     ctx.fillStyle = colorRight;
                     ctx.beginPath(); ctx.arc(0, -player.radius / 2, 2.5, 0, Math.PI * 2); ctx.fill();
-                    
                     ctx.fillStyle = colorLeft;
                     ctx.beginPath(); ctx.arc(0, player.radius / 2, 2.5, 0, Math.PI * 2); ctx.fill();
+                    
+                } else if (equippedSkin === "split_fire_ice") {
+                    // ICE (Left side - Icicles)
+                    ctx.fillStyle = colorRight; 
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI / 2, Math.PI * 1.5); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(0, -player.radius); ctx.lineTo(-player.radius-5, -5); ctx.lineTo(0, 0); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-player.radius-8, 6); ctx.lineTo(0, player.radius); ctx.fill();
+                    
+                    // FIRE (Right side - Flames)
+                    ctx.fillStyle = colorLeft; 
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, -Math.PI / 2, Math.PI / 2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(0, -player.radius); ctx.quadraticCurveTo(player.radius+8, -8, 0, 0); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(player.radius+10, 8, 0, player.radius); ctx.fill();
+                    
+                } else if (equippedSkin === "split_toxic_bio") {
+                    // BIO CORE
+                    ctx.fillStyle = colorLeft; 
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, 0, Math.PI*2); ctx.fill();
+                    // TOXIC BUBBLES
+                    ctx.fillStyle = colorRight; 
+                    ctx.beginPath(); ctx.arc(-4, -4, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(5, -2, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(0, 6, 5, 0, Math.PI*2); ctx.fill();
+                    // TOXIC AURA
+                    ctx.strokeStyle = colorRight; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius + 3, 0, Math.PI*2); ctx.stroke();
+                    
+                } else if (equippedSkin === "split_solar_lunar") {
+                    // LUNAR (Left side - Crescent Moon)
+                    ctx.fillStyle = colorRight; 
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI/2, Math.PI*1.5); ctx.fill();
+                    ctx.fillStyle = "#1a1a2e"; // Core background cutout
+                    ctx.beginPath(); ctx.arc(3, 0, player.radius-2, Math.PI/2, Math.PI*1.5); ctx.fill();
+                    
+                    // SOLAR (Right side - Spiky Sun Rays)
+                    ctx.fillStyle = colorLeft; 
+                    ctx.beginPath(); ctx.arc(0, 0, player.radius-2, -Math.PI/2, Math.PI/2); ctx.fill();
+                    for(let i=-Math.PI/2; i<=Math.PI/2; i+=Math.PI/4) {
+                        ctx.beginPath(); 
+                        ctx.moveTo(0, 0); 
+                        ctx.lineTo(Math.cos(i-0.2)*player.radius, Math.sin(i-0.2)*player.radius);
+                        ctx.lineTo(Math.cos(i)*(player.radius+6), Math.sin(i)*(player.radius+6));
+                        ctx.lineTo(Math.cos(i+0.2)*player.radius, Math.sin(i+0.2)*player.radius);
+                        ctx.fill();
+                    }
+                    
+                } else if (equippedSkin === "split_neon_synth") {
+                    // CYBERPUNK DIAMOND
+                    ctx.fillStyle = colorLeft; 
+                    ctx.beginPath(); ctx.moveTo(0, -player.radius-2); ctx.lineTo(-player.radius-2, 0); ctx.lineTo(0, player.radius+2); ctx.fill();
+                    ctx.fillStyle = colorRight; 
+                    ctx.beginPath(); ctx.moveTo(0, -player.radius-2); ctx.lineTo(player.radius+2, 0); ctx.lineTo(0, player.radius+2); ctx.fill();
+                    // GRID LINES
+                    ctx.strokeStyle = "#1a1a2e"; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(-player.radius, -player.radius/2); ctx.lineTo(player.radius, -player.radius/2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-player.radius, player.radius/2); ctx.lineTo(player.radius, player.radius/2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(0, -player.radius-2); ctx.lineTo(0, player.radius+2); ctx.stroke();
+                    
                 } else {
-                    // Gacha Skins Design: Core + Orbital Rings
+                    // FALLBACK
                     ctx.fillStyle = colorLeft;
                     ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI / 2, Math.PI * 1.5); ctx.fill();
-                    
                     ctx.fillStyle = colorRight;
                     ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI * 1.5, Math.PI / 2); ctx.fill();
-                    
-                    ctx.fillStyle = "#ffffff";
-                    ctx.beginPath(); ctx.arc(0, 0, player.radius * 0.4, 0, Math.PI * 2); ctx.fill();
-                    
-                    ctx.fillStyle = colorRight;
-                    ctx.beginPath(); ctx.arc(-player.radius - 4, 0, 3, 0, Math.PI * 2); ctx.fill();
-                    
-                    ctx.fillStyle = colorLeft;
-                    ctx.beginPath(); ctx.arc(player.radius + 4, 0, 3, 0, Math.PI * 2); ctx.fill();
                 }
                 ctx.restore();
             } else {
@@ -984,8 +1043,25 @@
                 else ctx.fillStyle = SKINS_CONFIG[equippedSkin] ? SKINS_CONFIG[equippedSkin].color : "#00adb5";
                 
                 if (equippedSkin === "og_stickman") { ctx.shadowColor = "#ff00ff"; ctx.shadowBlur = 15; }
+                
                 ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
                 ctx.shadowBlur = 0;
+                
+                // EXQUISITE OG DETAILS
+                if (equippedSkin === "og_stickman") {
+                    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.arc(player.x + 5, player.y - 3, 4, 0, Math.PI*2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(player.x + 9, player.y - 3); ctx.lineTo(player.x + 14, player.y + 4); ctx.stroke();
+                    
+                    ctx.fillStyle = "#fff";
+                    ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x - 6, player.y + 3); ctx.lineTo(player.x - 6, player.y + 9); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x + 6, player.y + 3); ctx.lineTo(player.x + 6, player.y + 9); ctx.fill();
+                    
+                    ctx.fillStyle = "#111";
+                    ctx.fillRect(player.x - 10, player.y - 12, 20, 2);
+                    ctx.fillRect(player.x - 6, player.y - 24, 12, 12);
+                    ctx.fillStyle = "#FFD700"; ctx.fillRect(player.x - 6, player.y - 15, 12, 3);
+                }
                 
                 if (gameStatus !== "realm") {
                     if (equippedSkin === "angelic" || equippedSkin === "accurate_angel" || equippedSkin === "exalted_angel" || equippedSkin === "denied_devil") drawHalo(player.x, player.y, "#ffeaa7");
