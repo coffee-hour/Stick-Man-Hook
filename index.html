@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏴‍☠️</text></svg>">
-    <title>Infinite Stickman Hook - Grand Line Edition</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>↺</text></svg>">
+    <title>Swing!</title>
     <style>
         body {
             margin: 0;
@@ -341,7 +341,7 @@
         let blackShards = parseInt(localStorage.getItem("stickman_black_shards")) || 0;
         let equippedSkin = localStorage.getItem("stickman_equipped_skin") || "default";
 
-        // Convert old boolean shards to integers
+        // Convert old boolean shards to integers (legacy support)
         if (localStorage.getItem("stickman_black_shard") === "true") { blackShards = Math.max(blackShards, 1); localStorage.removeItem("stickman_black_shard"); }
         if (localStorage.getItem("stickman_white_shard") === "true") { whiteShards = Math.max(whiteShards, 1); localStorage.removeItem("stickman_white_shard"); }
 
@@ -412,7 +412,6 @@
                     currentUser = u; currentPassword = p;
                     highScore = data.userData.high_score; equippedSkin = data.userData.equipped_skin; unlockedSkinsArray = data.userData.unlocked_skins || [];
                     
-                    // Fallback to local storage if Cloudflare worker hasn't been updated to handle integer shards yet
                     whiteShards = data.userData.white_shards !== undefined ? data.userData.white_shards : (parseInt(localStorage.getItem("stickman_white_shards")) || 0);
                     blackShards = data.userData.black_shards !== undefined ? data.userData.black_shards : (parseInt(localStorage.getItem("stickman_black_shards")) || 0);
 
@@ -475,7 +474,7 @@
             zoro: { name: "Pirate Hunter", color: "#0be881", cost: { white: 8, black: 1 }, ability: "Heavy Slash" }, 
             sanji: { name: "Black Leg", color: "#0fbcf9", cost: { white: 10, black: 2 }, ability: "Sky Walk" }, 
             nami: { name: "Cat Burglar", color: "#ffa801", cost: { white: 12, black: 3 }, ability: "Feather Fall" }, 
-            law: { name: "Surgeon of Death", color: "#ffffff", splitColor: "#1e272e", cost: { white: 15, black: 5 }, ability: "Room" } 
+            law: { name: "Surgeon of Death", color: "#2f3640", cost: { white: 15, black: 5 }, ability: "Room" } 
         };
 
         let angelicDropdownOpen = false; let devilDropdownOpen = false;
@@ -512,6 +511,7 @@
             const hasAngelSubSkins = checkUnlockStatus("denied_angel") || checkUnlockStatus("accurate_angel") || checkUnlockStatus("exalted_angel");
             const hasDevilSubSkins = checkUnlockStatus("denied_devil") || checkUnlockStatus("accurate_devil") || checkUnlockStatus("exalted_devil");
 
+            // Loop through base skins
             Object.keys(SKINS_CONFIG).forEach(key => {
                 const skin = SKINS_CONFIG[key];
                 if (skin.parent === "angelic" && !angelicDropdownOpen) return;
@@ -570,6 +570,35 @@
                 }
                 skinsGrid.appendChild(btn);
             });
+
+            // Show unlocked OP Skins in changing room
+            Object.keys(OP_SKINS).forEach(key => {
+                if (!unlockedSkinsArray.includes(key)) return; 
+                const skin = OP_SKINS[key];
+                const isEquipped = equippedSkin === key;
+
+                const btn = document.createElement("button");
+                btn.className = `skin-btn unlocked ${isEquipped ? 'equipped' : ''}`;
+                
+                const preview = document.createElement("span"); preview.className = "skin-preview";
+                preview.style.backgroundColor = skin.color;
+                btn.appendChild(preview);
+                
+                const nameLabel = document.createElement("span"); nameLabel.textContent = skin.name; btn.appendChild(nameLabel);
+                
+                const infoLabel = document.createElement("span"); infoLabel.style.fontSize = "9px"; infoLabel.style.color = "#666";
+                infoLabel.textContent = "PIRATE BAZAAR";
+                btn.appendChild(infoLabel);
+
+                if (skin.ability) {
+                    const abLabel = document.createElement("span"); abLabel.className = "ability-text";
+                    abLabel.textContent = skin.ability; btn.appendChild(abLabel);
+                }
+
+                btn.onclick = () => { equippedSkin = key; localStorage.setItem("stickman_equipped_skin", key); applySkinAbilities(); syncCloudSave(); renderChangingRoom(); renderBazaar(); };
+                skinsGrid.appendChild(btn);
+            });
+
             updateUI();
         }
 
@@ -586,8 +615,7 @@
                 card.className = `pirate-card ${isUnlocked ? 'unlocked' : ''} ${isEquipped ? 'equipped' : ''}`;
                 
                 const preview = document.createElement("div"); preview.className = "skin-preview";
-                if (skin.splitColor) preview.style.background = `linear-gradient(90deg, ${skin.color} 50%, ${skin.splitColor} 50%)`;
-                else preview.style.backgroundColor = skin.color;
+                preview.style.backgroundColor = skin.color;
                 
                 card.innerHTML = `
                     <div class="pirate-name">${skin.name}</div>
@@ -659,7 +687,7 @@
             if (safeEquipped === "luffy") maxHookRange += 75;
             if (safeEquipped === "zoro") momentumBoost = 0.14; 
             if (safeEquipped === "sanji") bounceMultiplier = 1.6;
-            if (safeEquipped === "nami") currentGravity = 0.32;
+            if (safeEquipped === "nami") currentGravity = 0.32; // Feather fall
             if (safeEquipped === "law") { currentGravity = 0.3; maxHookRange += 50; }
         }
 
@@ -672,12 +700,13 @@
             let lastHook = hooks[hooks.length - 1];
             
             while (lastHook.x < player.x + 1200) {
-                let nextX = lastHook.x + Math.floor(Math.random() * 120) + 180; 
-                let nextY = Math.floor(Math.random() * 180) + 50; 
+                let nextX = lastHook.x + Math.floor(Math.random() * 100) + 190; 
+                let nextY = Math.floor(Math.random() * 130) + 100; 
                 hooks.push({ x: nextX, y: nextY });
 
-                if (Math.random() < 0.3) bouncers.push({ type: "horizontal", x: nextX - 50, y: 400, width: 80, height: 12 });
-                
+                if (Math.random() < 0.35) bouncers.push({ type: "horizontal", x: nextX - 50, y: 430, width: 65, height: 12 });
+                else if (Math.random() < 0.55) bouncers.push({ type: "vertical", x: nextX - 110, y: nextY + 50, width: 14, height: 80 });
+
                 // PORTAL SPAWNING (Requires Angel or Devil skin to see them)
                 let safeEquipped = equippedSkin || "";
                 if (gameStatus === "playing" && Math.random() < 0.01) {
@@ -982,14 +1011,14 @@
                 ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(player.hookedTo.x, player.hookedTo.y); ctx.lineTo(player.x, player.y); ctx.stroke();
             }
 
-            if (equippedSkin === "exalted_angel") {
+            let safeEquipped = equippedSkin || "default";
+            let skinInfo = SKINS_CONFIG[safeEquipped] || OP_SKINS[safeEquipped] || SKINS_CONFIG.default;
+
+            if (safeEquipped === "exalted_angel") {
                 ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
                 ctx.beginPath(); ctx.moveTo(player.x - 6, player.y); ctx.quadraticCurveTo(player.x - 25, player.y - 18, player.x - 30, player.y - 5); ctx.quadraticCurveTo(player.x - 20, player.y + 12, player.x - 8, player.y + 4); ctx.fill();
                 ctx.beginPath(); ctx.moveTo(player.x + 6, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5); ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
             }
-
-            let safeEquipped = equippedSkin || "default";
-            let skinInfo = SKINS_CONFIG[safeEquipped] || OP_SKINS[safeEquipped] || SKINS_CONFIG.default;
 
             // GACHA SPLIT SKINS LOGIC (Unique Custom Shapes)
             if (skinInfo.splitColor) {
@@ -1049,72 +1078,107 @@
                     ctx.fillStyle = colorRight; ctx.beginPath(); ctx.arc(0, 0, player.radius, Math.PI * 1.5, Math.PI / 2); ctx.fill();
                 }
                 ctx.restore();
+
             } else {
+                // ONE PIECE CUSTOM DESIGNS
+                if (safeEquipped === "luffy") {
+                    ctx.fillStyle = "#ff3838"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill(); // Red Jacket
+                    ctx.fillStyle = "#f1c27d"; ctx.beginPath(); ctx.arc(player.x, player.y - 2, player.radius - 4, 0, Math.PI * 2); ctx.fill(); // Face
+                    ctx.fillStyle = "#fbc531"; ctx.beginPath(); ctx.ellipse(player.x, player.y - 8, 16, 4, 0, 0, Math.PI*2); ctx.fill(); // Brim
+                    ctx.beginPath(); ctx.arc(player.x, player.y - 10, 8, Math.PI, 0); ctx.fill(); // Top Hat
+                    ctx.strokeStyle = "#c23616"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(player.x - 8, player.y - 10); ctx.lineTo(player.x + 8, player.y - 10); ctx.stroke(); // Red Band
+                } else if (safeEquipped === "zoro") {
+                    ctx.fillStyle = "#1e272e"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill(); // Coat
+                    ctx.fillStyle = "#f1c27d"; ctx.beginPath(); ctx.arc(player.x, player.y - 2, player.radius - 4, 0, Math.PI * 2); ctx.fill(); // Face
+                    ctx.fillStyle = "#0be881"; ctx.beginPath(); ctx.arc(player.x, player.y - 6, player.radius - 2, Math.PI, 0); ctx.fill(); // Green Hair
+                    ctx.fillStyle = "#fff"; ctx.fillRect(player.x - 10, player.y + 2, 20, 2); // Mouth Sword
+                    ctx.fillStyle = "#7f8fa6"; ctx.fillRect(player.x - 12, player.y + 1, 2, 4); // Sword Hilt
+                } else if (safeEquipped === "sanji") {
+                    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill(); // Black Suit
+                    ctx.fillStyle = "#f1c27d"; ctx.beginPath(); ctx.arc(player.x, player.y - 2, player.radius - 4, 0, Math.PI * 2); ctx.fill(); // Face
+                    ctx.fillStyle = "#fbc531"; ctx.beginPath(); ctx.arc(player.x, player.y - 6, player.radius - 2, Math.PI, Math.PI*2); ctx.fill(); // Blonde Hair Swoop
+                    ctx.beginPath(); ctx.arc(player.x + 4, player.y - 4, 4, 0, Math.PI*2); ctx.fill(); 
+                    ctx.fillStyle = "#fff"; ctx.fillRect(player.x + 6, player.y + 2, 6, 2); // Cigarette
+                    ctx.fillStyle = "#e84118"; ctx.fillRect(player.x + 12, player.y + 2, 2, 2); // Cherry
+                } else if (safeEquipped === "nami") {
+                    ctx.fillStyle = "#f1c27d"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill(); // Body
+                    ctx.fillStyle = "#00a8ff"; ctx.beginPath(); ctx.arc(player.x - 4, player.y + 4, 3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(player.x + 4, player.y + 4, 3, 0, Math.PI*2); ctx.fill(); // Bikini Top
+                    ctx.fillStyle = "#e15f41"; ctx.beginPath(); ctx.arc(player.x, player.y - 4, player.radius, Math.PI, 0); ctx.fill(); // Orange Hair
+                    ctx.beginPath(); ctx.arc(player.x - 6, player.y - 2, 6, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(player.x + 6, player.y - 2, 6, 0, Math.PI*2); ctx.fill();
+                } else if (safeEquipped === "law") {
+                    ctx.fillStyle = "#2f3640"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill(); // Coat
+                    ctx.fillStyle = "#f1c27d"; ctx.beginPath(); ctx.arc(player.x, player.y - 2, player.radius - 4, 0, Math.PI * 2); ctx.fill(); // Face
+                    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(player.x, player.y - 8, player.radius + 2, Math.PI, 0); ctx.fill(); // Fluffy Hat
+                    ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(player.x - 6, player.y - 12, 2, 0, Math.PI*2); ctx.fill(); // Spots
+                    ctx.beginPath(); ctx.arc(player.x + 6, player.y - 12, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(player.x, player.y - 16, 2, 0, Math.PI*2); ctx.fill();
+                } 
                 // NORMAL SKINS
-                if (gameStatus === "realm") ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000";
-                else ctx.fillStyle = skinInfo.color;
-                
-                if (safeEquipped === "og_stickman") { ctx.shadowColor = "#ff00ff"; ctx.shadowBlur = 15; }
-                ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
-                ctx.shadowBlur = 0;
-                
-                // EXQUISITE OG DETAILS
-                if (safeEquipped === "og_stickman") {
-                    ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5;
-                    ctx.beginPath(); ctx.arc(player.x + 5, player.y - 3, 4, 0, Math.PI*2); ctx.stroke();
-                    ctx.beginPath(); ctx.moveTo(player.x + 9, player.y - 3); ctx.lineTo(player.x + 14, player.y + 4); ctx.stroke();
+                else {
+                    if (gameStatus === "realm") ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000";
+                    else ctx.fillStyle = skinInfo.color;
                     
-                    ctx.fillStyle = "#fff";
-                    ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x - 6, player.y + 3); ctx.lineTo(player.x - 6, player.y + 9); ctx.fill();
-                    ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x + 6, player.y + 3); ctx.lineTo(player.x + 6, player.y + 9); ctx.fill();
+                    if (safeEquipped === "og_stickman") { ctx.shadowColor = "#ff00ff"; ctx.shadowBlur = 15; }
+                    ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.shadowBlur = 0;
                     
-                    ctx.fillStyle = "#111";
-                    ctx.fillRect(player.x - 10, player.y - 12, 20, 2);
-                    ctx.fillRect(player.x - 6, player.y - 24, 12, 12);
-                    ctx.fillStyle = "#FFD700"; ctx.fillRect(player.x - 6, player.y - 15, 12, 3);
-                }
-                
-                if (gameStatus !== "realm") {
-                    if (safeEquipped === "angelic" || safeEquipped === "accurate_angel" || safeEquipped === "exalted_angel" || safeEquipped === "denied_devil") drawHalo(player.x, player.y, "#ffeaa7");
-                    if (safeEquipped === "denied_angel") drawHalo(player.x, player.y, "#ff0055");
+                    // EXQUISITE OG DETAILS
+                    if (safeEquipped === "og_stickman") {
+                        ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5;
+                        ctx.beginPath(); ctx.arc(player.x + 5, player.y - 3, 4, 0, Math.PI*2); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(player.x + 9, player.y - 3); ctx.lineTo(player.x + 14, player.y + 4); ctx.stroke();
+                        
+                        ctx.fillStyle = "#fff";
+                        ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x - 6, player.y + 3); ctx.lineTo(player.x - 6, player.y + 9); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(player.x, player.y + 6); ctx.lineTo(player.x + 6, player.y + 3); ctx.lineTo(player.x + 6, player.y + 9); ctx.fill();
+                        
+                        ctx.fillStyle = "#111";
+                        ctx.fillRect(player.x - 10, player.y - 12, 20, 2);
+                        ctx.fillRect(player.x - 6, player.y - 24, 12, 12);
+                        ctx.fillStyle = "#FFD700"; ctx.fillRect(player.x - 6, player.y - 15, 12, 3);
+                    }
                     
-                    if (safeEquipped === "devil" || safeEquipped === "exalted_devil") {
-                        ctx.fillStyle = "#ff0055";
-                        ctx.beginPath(); ctx.moveTo(player.x - 8, player.y - 8); ctx.lineTo(player.x - 14, player.y - 18); ctx.lineTo(player.x - 2, player.y - 11); ctx.fill();
-                        ctx.beginPath(); ctx.moveTo(player.x + 8, player.y - 8); ctx.lineTo(player.x + 14, player.y - 18); ctx.lineTo(player.x + 2, player.y - 11); ctx.fill();
-                    }
-                    if (safeEquipped === "denied_devil") {
-                        ctx.fillStyle = "#cc0044";
-                        ctx.beginPath(); ctx.ellipse(player.x - 10, player.y + 2, 3, 9, Math.PI/4, 0, Math.PI*2); ctx.fill();
-                        ctx.beginPath(); ctx.ellipse(player.x + 10, player.y + 2, 3, 9, -Math.PI/4, 0, Math.PI*2); ctx.fill();
-                        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                    }
-                    if (safeEquipped === "accurate_devil") {
-                        ctx.fillStyle = "#111111"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI); ctx.fill();
-                        ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.moveTo(player.x - 5, player.y - 3); ctx.lineTo(player.x + 5, player.y - 3); ctx.lineTo(player.x, player.y + 4); ctx.fill();
-                        ctx.fillStyle = "#ff0000";
-                        ctx.beginPath(); ctx.moveTo(player.x - 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x - 4, player.y + 2); ctx.fill();
-                        ctx.beginPath(); ctx.moveTo(player.x + 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x + 4, player.y + 2); ctx.fill();
-                        ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
-                    }
-                    if (safeEquipped === "exalted_devil") {
-                        ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 1.5;
-                        ctx.beginPath(); ctx.moveTo(player.x + 8, player.y + 6); ctx.lineTo(player.x + 22, player.y - 12); ctx.stroke(); 
-                        ctx.beginPath(); ctx.moveTo(player.x + 16, player.y - 9); ctx.lineTo(player.x + 19, player.y - 16); ctx.lineTo(player.x + 26, player.y - 12); ctx.stroke(); 
-                        ctx.fillStyle = "#8b0000"; ctx.beginPath(); ctx.arc(player.x + 23, player.y - 13, 1.2, 0, Math.PI*2); ctx.fill(); 
-                        ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                    }
-                    if (safeEquipped === "denied_angel") {
-                        ctx.fillStyle = "#ff0055"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                        ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
-                    }
-                    if (safeEquipped === "accurate_angel") {
-                        ctx.fillStyle = "#000000";
-                        let eyePos = [[-5, -4], [0, -6], [5, -4], [-4, 3], [4, 3], [0, 6]];
-                        eyePos.forEach(p => { ctx.beginPath(); ctx.arc(player.x + p[0], player.y + p[1], 1.8, 0, Math.PI*2); ctx.fill(); });
+                    if (gameStatus !== "realm") {
+                        if (safeEquipped === "angelic" || safeEquipped === "accurate_angel" || safeEquipped === "exalted_angel" || safeEquipped === "denied_devil") drawHalo(player.x, player.y, "#ffeaa7");
+                        if (safeEquipped === "denied_angel") drawHalo(player.x, player.y, "#ff0055");
+                        
+                        if (safeEquipped === "devil" || safeEquipped === "exalted_devil") {
+                            ctx.fillStyle = "#ff0055";
+                            ctx.beginPath(); ctx.moveTo(player.x - 8, player.y - 8); ctx.lineTo(player.x - 14, player.y - 18); ctx.lineTo(player.x - 2, player.y - 11); ctx.fill();
+                            ctx.beginPath(); ctx.moveTo(player.x + 8, player.y - 8); ctx.lineTo(player.x + 14, player.y - 18); ctx.lineTo(player.x + 2, player.y - 11); ctx.fill();
+                        }
+                        if (safeEquipped === "denied_devil") {
+                            ctx.fillStyle = "#cc0044";
+                            ctx.beginPath(); ctx.ellipse(player.x - 10, player.y + 2, 3, 9, Math.PI/4, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.ellipse(player.x + 10, player.y + 2, 3, 9, -Math.PI/4, 0, Math.PI*2); ctx.fill();
+                            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                        }
+                        if (safeEquipped === "accurate_devil") {
+                            ctx.fillStyle = "#111111"; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI); ctx.fill();
+                            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.moveTo(player.x - 5, player.y - 3); ctx.lineTo(player.x + 5, player.y - 3); ctx.lineTo(player.x, player.y + 4); ctx.fill();
+                            ctx.fillStyle = "#ff0000";
+                            ctx.beginPath(); ctx.moveTo(player.x - 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x - 4, player.y + 2); ctx.fill();
+                            ctx.beginPath(); ctx.moveTo(player.x + 4, player.y - 2); ctx.lineTo(player.x, player.y); ctx.lineTo(player.x + 4, player.y + 2); ctx.fill();
+                            ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(player.x + 4, player.y - 5, 2, 0, Math.PI*2); ctx.fill();
+                        }
+                        if (safeEquipped === "exalted_devil") {
+                            ctx.strokeStyle = "#8b0000"; ctx.lineWidth = 1.5;
+                            ctx.beginPath(); ctx.moveTo(player.x + 8, player.y + 6); ctx.lineTo(player.x + 22, player.y - 12); ctx.stroke(); 
+                            ctx.beginPath(); ctx.moveTo(player.x + 16, player.y - 9); ctx.lineTo(player.x + 19, player.y - 16); ctx.lineTo(player.x + 26, player.y - 12); ctx.stroke(); 
+                            ctx.fillStyle = "#8b0000"; ctx.beginPath(); ctx.arc(player.x + 23, player.y - 13, 1.2, 0, Math.PI*2); ctx.fill(); 
+                            ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                        }
+                        if (safeEquipped === "denied_angel") {
+                            ctx.fillStyle = "#ff0055"; ctx.beginPath(); ctx.arc(player.x - 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.arc(player.x + 4, player.y - 2, 2.5, 0, Math.PI*2); ctx.fill();
+                        }
+                        if (safeEquipped === "accurate_angel") {
+                            ctx.fillStyle = "#000000";
+                            let eyePos = [[-5, -4], [0, -6], [5, -4], [-4, 3], [4, 3], [0, 6]];
+                            eyePos.forEach(p => { ctx.beginPath(); ctx.arc(player.x + p[0], player.y + p[1], 1.8, 0, Math.PI*2); ctx.fill(); });
+                        }
                     }
                 }
             }
