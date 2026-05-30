@@ -480,7 +480,7 @@
         }
 
         let player = { x: 100, y: 200, vx: 8, vy: 0, radius: 12, isSwinging: false, hookedTo: null, ropeLength: 0 };
-        let hooks = []; let bouncers = []; let portals = []; let targetHook = null; let cameraX = 0; let score = 0; let rawDist = 0;
+        let hooks = []; let bouncers = []; let portals = []; let targetHook = null; let cameraX = 0; let score = -1; let rawDist = 0;
 
         function spawnEnvironment() {
             if (hooks.length === 0) hooks.push({ x: player.x + 200, y: 150 });
@@ -490,7 +490,7 @@
                 let nextY = Math.floor(Math.random() * 130) + 100; 
                 hooks.push({ x: nextX, y: nextY });
 
-                if (Math.random() < 0.35) bouncers.push({ type: "horizontal", x: nextX - 50, y: 430, width: 65, height: 12 });
+                if (Math.random() < 0.35) bouncers.push({ type: "horizontal", x: nextX - 50, y: 400, width: 65, height: 12 });
                 else if (Math.random() < 0.55) bouncers.push({ type: "vertical", x: nextX - 110, y: nextY + 50, width: 14, height: 80 });
 
                 let eq = user.equipped_skin || "";
