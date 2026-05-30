@@ -281,7 +281,7 @@
                 <div>☁️ Cloud Save</div>
                 <div id="authInputs">
                     <input type="text" id="usernameInput" class="auth-input" placeholder="Username">
-                    <input type="password_hash" id="passwordInput" class="auth-input" placeholder="Password">
+                    <input type="password" id="passwordInput" class="auth-input" placeholder="Password">
                     <button id="loginBtn" class="auth-btn">Login</button>
                     <button id="registerBtn" class="auth-btn">Register</button>
                 </div>
@@ -441,7 +441,7 @@
         async function syncCloudSave(addedPoints = 0) {
             if (!currentUser) return; 
             const payload = {
-                username: currentUser, password_hash: currentPassword, high_score: highScore, equipped_skin: equippedSkin,
+                username: currentUser, password: currentPassword, high_score: highScore, equipped_skin: equippedSkin,
                 white_shards: whiteShards, black_shards: blackShards,
                 unlocked_skins: unlockedSkinsArray,
                 guild: currentGuild,
