@@ -11,13 +11,13 @@
             background: #1a1a2e;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Changed to allow scrolling */
+            align-items: flex-start; /* Allows scrolling */
             min-height: 100vh;
-            overflow-y: auto; /* Replaced overflow: hidden */
+            overflow-y: auto; /* Replaced hidden with auto for scrolling */
             font-family: sans-serif;
             color: white;
             user-select: none;
-            padding: 20px 0; /* Adds breathing room at the top/bottom */
+            padding: 20px 0; /* Breathing room top/bottom */
         }
         
         #main-layout {
@@ -250,6 +250,14 @@
             height: 100%; background: #0be881; width: 0%; transition: width 0.5s ease-out;
             box-shadow: 0 0 8px #0be881;
         }
+        
+        /* Guild Tag Style */
+        .guild-tag {
+            background: #232342; border: 1px solid #1f4068; padding: 3px 6px; 
+            border-radius: 4px; cursor: pointer; color: #f9a826; font-size: 10px;
+            transition: background 0.2s; display: inline-block;
+        }
+        .guild-tag:hover { background: #1f4068; color: #fff; }
 
         /* Toast Notification System */
         #toastContainer {
@@ -335,6 +343,10 @@
                         <button id="setGuildBtn" class="auth-btn" style="background:#f9a826; color:#1a1a2e; padding: 4px 10px; font-size:11px;">Set</button>
                     </div>
                     <div style="margin-top:5px; font-size:10px; color:#888;">Tag: <span id="currentGuildDisplay" style="color:#fff">None</span></div>
+                    
+                    <div style="margin-top:10px; font-size:10px; color:#888;">Active Guilds to Join: 
+                        <div id="activeGuildsList" style="display:flex; gap:5px; flex-wrap:wrap; margin-top:5px;"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -402,9 +414,11 @@
                 const res = await fetch(`${API_URL}/api/server_data`);
                 const data = await res.json();
                 if (data.success) {
-                    // 1. Leaderboard
+                    // 1. Leaderboard & Guild Parsing
                     const leaderboardList = document.getElementById("leaderboardList");
                     leaderboardList.innerHTML = "";
+                    let parsedGuilds = []; // Store unique guilds found
+
                     if (data.leaderboard.length === 0) {
                         leaderboardList.innerHTML = '<div style="text-align: center; color: #666; margin-top: 20px;">No scores recorded yet!</div>';
                     } else {
@@ -412,9 +426,28 @@
                             const item = document.createElement("div"); item.className = "leaderboard-item";
                             if(currentUser && row.username === currentUser) { item.style.borderColor = "#4ecca3"; item.style.background = "#232342"; }
                             let guildTag = row.guild ? `<span style="color:#f9a826">[${row.guild}]</span> ` : "";
+                            if (row.guild && !parsedGuilds.includes(row.guild)) parsedGuilds.push(row.guild);
+                            
                             item.innerHTML = `<div><span class="leaderboard-rank">#${index + 1}</span><span class="leaderboard-name">${guildTag}${row.username}</span></div><span class="leaderboard-score">${row.score}</span>`;
                             leaderboardList.appendChild(item);
                         });
+                    }
+
+                    // Populate Active Guilds UI
+                    const activeGuildsList = document.getElementById("activeGuildsList");
+                    activeGuildsList.innerHTML = "";
+                    if (parsedGuilds.length > 0) {
+                        parsedGuilds.forEach(g => {
+                            const tagEl = document.createElement("span");
+                            tagEl.className = "guild-tag";
+                            tagEl.textContent = g;
+                            tagEl.onclick = () => {
+                                document.getElementById("guildInput").value = g;
+                            };
+                            activeGuildsList.appendChild(tagEl);
+                        });
+                    } else {
+                        activeGuildsList.innerHTML = "<span>No active guilds yet. Create one!</span>";
                     }
 
                     // 2. Global Quest Update
@@ -440,8 +473,9 @@
 
         async function syncCloudSave(addedPoints = 0) {
             if (!currentUser) return; 
+            // Note: Sending password_hash to match backend requirements
             const payload = {
-                username: currentUser, password: currentPassword, high_score: highScore, equipped_skin: equippedSkin,
+                username: currentUser, password_hash: currentPassword, high_score: highScore, equipped_skin: equippedSkin,
                 white_shards: whiteShards, black_shards: blackShards,
                 unlocked_skins: unlockedSkinsArray,
                 guild: currentGuild,
@@ -461,7 +495,8 @@
             if(!u || !p) return showToast("Please fill in both username and password.", 3000, "#ff0055");
             if(u.length > 15) return showToast("Usernames must be 15 characters or less.", 3000, "#ff0055");
             try {
-                const res = await fetch(`${API_URL}/api/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) });
+                // Sent with password_hash key
+                const res = await fetch(`${API_URL}/api/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password_hash: p }) });
                 const data = await res.json();
                 if (data.success) showToast("Registration successful! You can now log in.", 4000);
                 else showToast("Error: " + data.error, 4000, "#ff0055");
@@ -472,10 +507,11 @@
             const u = document.getElementById("usernameInput").value.trim(); const p = document.getElementById("passwordInput").value;
             if(!u || !p) return showToast("Please fill in both username and password.", 3000, "#ff0055");
             try {
-                const res = await fetch(`${API_URL}/api/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password: p }) });
+                // Sent with password_hash key
+                const res = await fetch(`${API_URL}/api/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: u, password_hash: p }) });
                 const data = await res.json();
                 if (data.success) {
-                    currentUser = u; currentPassword = p;
+                    currentUser = u; currentPassword = p; // Store for sync
                     highScore = data.userData.high_score; equippedSkin = data.userData.equipped_skin; unlockedSkinsArray = data.userData.unlocked_skins || [];
                     currentGuild = data.userData.guild || "";
                     
@@ -496,6 +532,16 @@
                     applySkinAbilities(); renderChangingRoom(); renderBazaar(); fetchServerData(); 
                 } else showToast("Login failed: " + data.error, 4000, "#ff0055");
             } catch (err) { showToast("Failed to connect to API.", 3000, "#ff0055"); }
+        });
+
+        // --- Cheats & Codes ---
+        document.getElementById("equippedClickable").addEventListener("click", () => {
+            let code = prompt("ENTER ACCESS CODE:");
+            if (code && code.toUpperCase() === "PT") {
+                player.x = 1000100; player.y = 100; player.vx = 12; player.vy = 0;
+                player.isSwinging = false; player.hookedTo = null; hooks = []; bouncers = []; portals = [];
+                manageEnvironment(); showToast("⏩ WARP SPEED ENGAGED: 100,000 POINTS", 4000, "#00ffff");
+            }
         });
 
         // --- SKINS DATABASES ---
@@ -550,6 +596,7 @@
             const gachaPool = ["split_fire_ice", "split_toxic_bio", "split_solar_lunar", "split_neon_synth"];
             const availableGacha = gachaPool.filter(s => !checkUnlockStatus(s));
 
+            // Automatically hide/show gacha based on ownership
             if (whiteShards >= 1 && blackShards >= 1) {
                 if (checkUnlockStatus("yin_yang")) {
                     if (availableGacha.length > 0) {
@@ -558,7 +605,7 @@
                         fuseBtn.style.background = "linear-gradient(90deg, #ff00ff 50%, #00ffff 50%)"; 
                         fuseBtn.style.color = "#1a1a2e";
                     } else {
-                        // Maxed out all gacha skins - hide the button completely
+                        // All gacha skins unlocked, hide button completely to allow shard hoarding
                         fuseBtn.style.display = "none";
                     }
                 } else {
@@ -1015,7 +1062,7 @@
                             unlockedSkinKey = available[Math.floor(Math.random() * available.length)];
                             alertMsg = `🎉 GACHA ROLL SUCCESS! 🎉\nCost: 1⬛ + 1⬜\nUnlocked: ${SKINS_CONFIG[unlockedSkinKey].name.toUpperCase()}`;
                         } else {
-                            // Fallback safety (shouldn't be reachable with the updated button logic)
+                            // Maxed out fallback (Should not trigger due to button hiding, but safe to keep)
                             highScore += 5000; localStorage.setItem("stickman_high_score", highScore);
                             alertMsg = "💎 GACHA MAXED OUT! 💎\nCost: 1⬛ + 1⬜\nYou received 5000 Bonus Points instead!";
                             unlockedSkinKey = equippedSkin; 
