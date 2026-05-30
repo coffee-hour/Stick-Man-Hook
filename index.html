@@ -441,7 +441,7 @@
         async function syncCloudSave(addedPoints = 0) {
             if (!currentUser) return; 
             const payload = {
-                username: currentUser, password: currentPassword, high_score: highScore, equipped_skin: equippedSkin,
+                username: currentUser, password_hash: currentPassword, high_score: highScore, equipped_skin: equippedSkin,
                 white_shards: whiteShards, black_shards: blackShards,
                 unlocked_skins: unlockedSkinsArray,
                 guild: currentGuild,
