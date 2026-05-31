@@ -701,8 +701,8 @@
                 user.guild_coins += Math.floor(score / 5000); // Earn coins from playing
 
                 let eq = user.equipped_skin || "";
-                if (rawDist < 0 && !user.unlocked.includes("devil")) { unlockSkin("devil"); showToast("👹 UNLOCKED: THE DEVIL SKIN!", 5000, "#ff0055"); }
-                if (rawDist < 0 && eq.includes("angel") && !user.unlocked.includes("denied_angel")) { unlockSkin("denied_angel"); showToast("🥀 UNLOCKED: DENIED ANGEL", 5000, "#ff0055"); }
+                if (rawDist = 0 && !user.unlocked.includes("devil")) { unlockSkin("devil"); showToast("👹 UNLOCKED: THE DEVIL SKIN!", 5000, "#ff0055"); }
+                if (rawDist = 0 && eq.includes("angel") && !user.unlocked.includes("denied_angel")) { unlockSkin("denied_angel"); showToast("🥀 UNLOCKED: DENIED ANGEL", 5000, "#ff0055"); }
                 
                 if (eq.includes("angel")) {
                     let angelDeaths = parseInt(localStorage.getItem("stickman_angelic_deaths") || "0") + 1; localStorage.setItem("stickman_angelic_deaths", angelDeaths);
