@@ -581,7 +581,7 @@
                 let nextY = Math.floor(Math.random() * 130) + 100; 
                 hooks.push({ x: nextX, y: nextY });
 
-                if (Math.random() < 0.35) bouncers.push({ type: "horizontal", x: nextX - 50, y: 430, width: 65, height: 12 });
+                if (Math.random() < 0.35) bouncers.push({ type: "horizontal", x: nextX - 50, y: 400, width: 65, height: 12 });
                 else if (Math.random() < 0.55) bouncers.push({ type: "vertical", x: nextX - 110, y: nextY + 50, width: 14, height: 80 });
 
                 let eq = user.equipped_skin || "";
