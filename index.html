@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>↺</text></svg>">
-    <title>Swing!</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>☯️</text></svg>">
+    <title>Infinite Swing - MMO Edition</title>
     <style>
         body { margin: 0; background: #1a1a2e; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; overflow-y: auto; font-family: sans-serif; color: white; user-select: none; padding: 10px 0; touch-action: manipulation; }
         #main-layout { display: flex; gap: 15px; max-width: 1300px; width: 100%; padding: 15px; box-sizing: border-box; flex-wrap: wrap; }
@@ -41,7 +41,7 @@
 
         #toastContainer { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 1000; pointer-events: none; }
         .toast { background: rgba(22, 36, 71, 0.95); border: 2px solid #4ecca3; color: #fff; padding: 12px 25px; border-radius: 8px; font-weight: bold; animation: fadeInOut 4s forwards; text-align: center; white-space: pre-wrap; font-size: 14px; }
-        @keyframes fadeInOut { 0% { opacity: 0; transform: translateY(-20px); } 10% { opacity: 1; transform: translateY(0); } 90% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes fadeInOut { 0% { opacity: 0; transform: translateY(-20px); } 10% { opacity: 1; transform: translateY(0); } 90% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }
 
         .progress-bar { width: 100%; height: 10px; background: #1a1a2e; border-radius: 5px; overflow: hidden; margin: 5px 0; border: 1px solid #1f4068; }
         #dailyProgress { height: 100%; background: #0be881; width: 0%; transition: width 0.5s ease-out; box-shadow: 0 0 8px #0be881; }
@@ -49,6 +49,8 @@
         .action-btn { background: #4bcffa; color: #1a1a2e; border: none; padding: 3px 6px; border-radius: 3px; font-weight: bold; font-size: 10px; cursor: pointer; }
         .action-btn.red { background: #ff4757; }
         .action-btn.green { background: #0be881; }
+        
+        #serverMsgBanner { display: none; background: #e84118; color: white; padding: 8px; border-radius: 6px; font-size: 13px; font-weight: bold; width: 100%; box-sizing: border-box; text-align: center; box-shadow: 0 0 10px #e84118;}
 
         @media (max-width: 800px) { #main-layout { flex-direction: column; } .side-panel { height: auto; max-height: 400px; width: 100%; } }
     </style>
@@ -83,6 +85,8 @@
         </div>
 
         <div id="game-container">
+            <div id="serverMsgBanner"></div>
+            
             <div class="ui-bar" id="authBar">
                 <span>☁️ Cloud Save</span>
                 <input type="text" id="usernameInput" class="auth-input" placeholder="Username">
@@ -115,13 +119,22 @@
                 </div>
 
                 <div class="panel-box" style="flex: 1;">
-                    <h4>🌍 Global Quest</h4>
-                    <div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Daily Goal: 1,000,000 pts</div>
+                    <h4 id="devTrigger" style="cursor:help;">🌍 Global Quest</h4>
+                    <div style="font-size: 11px; color: #aaa; margin-bottom: 5px;">Daily Goal: 100,000 pts</div>
                     <div style="font-size: 14px; font-weight: bold; color: #4ecca3; margin-bottom: 2px;">
-                        <span id="dailyPointsDisplay">0</span> / 1m
+                        <span id="dailyPointsDisplay">0</span> / 100k
                     </div>
                     <div class="progress-bar"><div id="dailyProgress" style="width:0%"></div></div>
                     <div style="font-size: 11px; color: #ff9ff3; margin-top: 5px;">Streak: <span id="streakDisplay">0</span> / 7 Days 🔥</div>
+                </div>
+                
+                <div id="devPanel" class="panel-box" style="display:none; flex: 100%;">
+                    <h4 style="color:#ff4757">🛠️ Dev Corner</h4>
+                    <input type="text" id="devMessageInput" class="auth-input" placeholder="Server Broadcast Message" style="width:200px;">
+                    <button class="auth-btn" style="background:#ff4757; color:#fff;" onclick="sendDevCmd(document.getElementById('devMessageInput').value, null)">Broadcast</button>
+                    <button class="auth-btn" style="background:#f9a826; color:#111; margin-left: 10px;" onclick="sendDevCmd(null, true)">Event 2x ON</button>
+                    <button class="auth-btn" style="background:#555; color:#fff;" onclick="sendDevCmd(null, false)">Event OFF</button>
+                    <button class="auth-btn" style="background:#111; color:#ff4757; border:1px solid #ff4757; margin-left:10px;" onclick="sendDevCmd('', null)">Clear Broadcast</button>
                 </div>
             </div>
         </div>
@@ -146,27 +159,20 @@
             username: null, password_hash: null, high_score: parseInt(localStorage.getItem("hc")) || 0,
             equipped_skin: localStorage.getItem("eq") || "default", unlocked: ["default"],
             w_shards: parseInt(localStorage.getItem("ws")) || 0, b_shards: parseInt(localStorage.getItem("bs")) || 0, 
-            guild: localStorage.getItem("gd") || "", guild_coins: 0, is_leader: false
+            guild: localStorage.getItem("gd") || "", guild_coins: 0, is_leader: false,
+            games_played: 0, highest_distance_today: 0, shards_collected_today: 0
         };
 
         let isGlobalRewardUnlocked = false;
+        let serverEventMultiplier = 1;
         let angelicDropdownOpen = false; let devilDropdownOpen = false;
-        let activeChallenges = []; // Store challenges to check in-game
+        let activeChallenges = []; 
 
-        // DAILY TASKS LOCAL SYSTEM
         let todayStr = new Date().toISOString().split('T')[0];
         let dailyTasks = JSON.parse(localStorage.getItem("stickman_tasks")) || { date: todayStr, dist: 0, games: 0, shards: 0, c1: false, c2: false, c3: false };
         if (dailyTasks.date !== todayStr) dailyTasks = { date: todayStr, dist: 0, games: 0, shards: 0, c1: false, c2: false, c3: false };
 
-        // Legacy populate
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith("stickman_skin_") && localStorage.getItem(key) === "true") {
-                let skinName = key.replace("stickman_skin_", "");
-                if (!user.unlocked.includes(skinName)) user.unlocked.push(skinName);
-            }
-        });
-
-        // --- SKINS DATABASE (Old + MMO Additions, No One Piece) ---
+        // --- SKINS DATABASE ---
         const SKINS_CONFIG = {
             og_stickman: { name: "Exquisite OG", color: "#ff00ff", condition: "First 10 Players", ability: "Looking Dapper" },
             community_hero: { name: "Global Guardian", color: "#00ffff", splitColor: "#f9a826", condition: "7-Day Global Streak", ability: "Max Magnet + Low Grav" },
@@ -176,8 +182,8 @@
             pink: { name: "Pink", color: "#ffc0cb", score: 1000, ability: "Low Gravity" },
             blue: { name: "Blue", color: "#0000ff", score: 5000, ability: "Slippery" },
             red: { name: "Red", color: "#ff0000", score: 7000, ability: "Heavy Momentum" },
-            orange: { name: "Orange", color: "#ffa500", score: 10000 },
-            yellow: { name: "Yellow", color: "#ffff00", score: 20000 },
+            orange: { name: "Orange", color: "#ffa500", score: 10000, ability: "2x Multiplier!" }, 
+            yellow: { name: "Yellow", color: "#ffff00", score: 20000, ability: "5x Multiplier!" }, 
             gold: { name: "Gold", color: "#ffd700", score: 100000, ability: "10x Multiplier!" },
             guild_master: { name: "Guild Master", color: "#8e44ad", condition: "Costs 1000 GC", ability: "Guild Leader Status" },
             
@@ -198,6 +204,24 @@
             split_neon_synth: { name: "Neon Synth", color: "#ff00ff", splitColor: "#00ffff", condition: "Gacha Roll" }
         };
 
+        // DEV CORNER UNLOCK
+        let devModeUnlocked = false;
+        document.getElementById("devTrigger").addEventListener("dblclick", () => {
+            if (!devModeUnlocked) {
+                let p = prompt("Enter Dev Access Code:");
+                if (p === "RENROCVED") {
+                    devModeUnlocked = true;
+                    document.getElementById("devPanel").style.display = "block";
+                    showToast("🛠️ Dev Tools Unlocked", 3000, "#ff4757");
+                }
+            }
+        });
+        
+        async function sendDevCmd(msg, toggle) {
+            await fetch(`${API_URL}/api/dev`, { method: "POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ password: "RENROCVED", message: msg, event_toggle: toggle }) });
+            fetchServerData(); showToast("Command sent to server.", 3000, "#ff4757");
+        }
+
         // --- UTILS ---
         function showToast(msg, duration=4000, color="#4ecca3") {
             const c = document.getElementById("toastContainer"); if (!c) return;
@@ -207,9 +231,14 @@
 
         function calculateMultiplier() {
             let m = 1; let texts = [];
+            
+            if (serverEventMultiplier > 1) { m *= serverEventMultiplier; texts.push(`🎉 GLOBAL ${serverEventMultiplier}X EVENT`); }
             if (new Date().getDay() === 5) { m *= 2; texts.push("🔥 2X FRIDAY"); }
+            if (user.equipped_skin === 'orange') m *= 2;
+            if (user.equipped_skin === 'yellow') m *= 5;
             if (user.equipped_skin === 'gold') m *= 10;
             if (user.is_leader) { m *= 1.5; texts.push("👑 LEADER (1.5x)"); }
+            
             document.getElementById("multiDisplay").textContent = m + "x";
             document.getElementById("guildMultiDisplay").textContent = texts.join(" | ");
             return m;
@@ -259,7 +288,7 @@
             calculateMultiplier();
         }
 
-        // --- AUTH & NETWORK ---
+        // --- AUTH & NETWORK & POLLING ---
         async function fetchServerData() {
             try {
                 const res = await fetch(`${API_URL}/api/server_data`); const data = await res.json();
@@ -278,6 +307,15 @@
                     document.getElementById("streakDisplay").textContent = data.global.streak;
                     document.getElementById("dailyProgress").style.width = Math.min(100, (data.global.daily_points / 100000) * 100) + "%";
 
+                    const msgBanner = document.getElementById("serverMsgBanner");
+                    if (data.global.server_message && data.global.server_message.trim() !== "") {
+                        msgBanner.textContent = "📢 SERVER: " + data.global.server_message;
+                        msgBanner.style.display = "block";
+                    } else { msgBanner.style.display = "none"; }
+                    
+                    serverEventMultiplier = data.global.event_multiplier || 1;
+                    calculateMultiplier();
+
                     isGlobalRewardUnlocked = data.global.reward_unlocked;
                     if (isGlobalRewardUnlocked && !user.unlocked.includes("community_hero")) {
                         unlockSkin("community_hero"); showToast("🌍 7-DAY STREAK COMPLETE!\n'Community Hero' Skin Unlocked!", 6000, "#00ffff");
@@ -293,36 +331,38 @@
                 const data = await res.json();
                 if(data.success) {
                     const sl = document.getElementById("socialList"); sl.innerHTML = "";
+                    let nowUTC = Date.now();
                     
-                    // Render Friends & Requests
                     data.friends.forEach(f => {
                         let isSender = f.user1 === user.username;
                         let other = isSender ? f.user2 : f.user1;
+                        
+                        let isOnline = false;
+                        if (f.last_seen) {
+                            let lsTime = new Date(f.last_seen + "Z").getTime();
+                            if (nowUTC - lsTime < 300000) isOnline = true; // 5 mins
+                        }
+                        let dot = isOnline ? "🟢" : "⚪";
+
                         if (f.status === 'pending') {
                             if (!isSender) {
                                 sl.innerHTML += `<div class="list-item"><span>📥 ${other}</span> <div><button class="action-btn green" onclick="respondFriend(${f.id}, 'accepted')">✓</button> <button class="action-btn red" onclick="respondFriend(${f.id}, 'declined')">X</button></div></div>`;
-                            } else {
-                                sl.innerHTML += `<div class="list-item"><span>⏳ ${other} (Pending)</span></div>`;
-                            }
+                            } else sl.innerHTML += `<div class="list-item"><span>⏳ ${other} (Pending)</span></div>`;
                         } else {
-                            sl.innerHTML += `<div class="list-item"><span>🤝 ${other}</span> <button class="action-btn" onclick="sendChallenge('${other}')">Duel</button></div>`;
+                            sl.innerHTML += `<div class="list-item"><span>${dot} ${other}</span> <button class="action-btn" onclick="sendChallenge('${other}')">Duel</button></div>`;
                         }
                     });
 
-                    // Render Challenges
                     activeChallenges = [];
                     data.challenges.forEach(c => {
                         let isSender = c.challenger === user.username;
                         let other = isSender ? c.challenged : c.challenger;
                         if (c.status === 'pending') {
-                            if (!isSender) {
-                                sl.innerHTML += `<div class="list-item"><span>⚔️ ${other}: ${c.goal}pts</span> <div><button class="action-btn green" onclick="respondChallenge(${c.id}, 'accepted')">✓</button> <button class="action-btn red" onclick="respondChallenge(${c.id}, 'declined')">X</button></div></div>`;
-                            } else {
-                                sl.innerHTML += `<div class="list-item"><span>⏳ Duel ${other}: ${c.goal}pts</span></div>`;
-                            }
+                            if (!isSender) sl.innerHTML += `<div class="list-item"><span>⚔️ ${other}: ${c.goal}pts</span> <div><button class="action-btn green" onclick="respondChallenge(${c.id}, 'accepted')">✓</button> <button class="action-btn red" onclick="respondChallenge(${c.id}, 'declined')">X</button></div></div>`;
+                            else sl.innerHTML += `<div class="list-item"><span>⏳ Duel ${other}: ${c.goal}pts</span></div>`;
                         } else if (c.status === 'accepted') {
                             activeChallenges.push(c);
-                            sl.innerHTML += `<div class="list-item" style="border-color:#f9a826;"><span>🔥 ACTIVE vs ${other}: ${c.goal}pts</span></div>`;
+                            sl.innerHTML += `<div class="list-item" style="border-color:#f9a826;"><span>🔥 vs ${other}: ${c.goal}pts</span></div>`;
                         }
                     });
                     if(sl.innerHTML === "") sl.innerHTML = "<div style='text-align:center; color:#666; font-size:11px; padding:10px;'>Add friends to duel!</div>";
@@ -330,7 +370,9 @@
             } catch(e){}
         }
 
-        // Social Actions
+        // Fast Polling: every 15s
+        setInterval(() => { fetchServerData(); if(user.username) fetchSocialData(); }, 15000);
+
         document.getElementById("addFriendBtn").onclick = async () => {
             const target = document.getElementById("friendInput").value.trim();
             if(!target || target === user.username) return;
@@ -339,33 +381,18 @@
             if(data.success) { showToast(`Request sent to ${target}`); document.getElementById("friendInput").value = ""; fetchSocialData(); }
             else showToast(data.error, 3000, "#ff0055");
         };
-
-        async function respondFriend(id, response) {
-            await fetch(`${API_URL}/api/social`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: user.username, action: "respond_friend", payload: {id, response}}) });
-            fetchSocialData();
-        }
-
+        async function respondFriend(id, response) { await fetch(`${API_URL}/api/social`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: user.username, action: "respond_friend", payload: {id, response}}) }); fetchSocialData(); }
         async function sendChallenge(target) {
             let goal = parseInt(prompt(`Enter score goal to challenge ${target}:`, "50000"));
             if (!goal || isNaN(goal) || goal <= 0) return;
             await fetch(`${API_URL}/api/social`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: user.username, action: "send_challenge", payload: {target, goal}}) });
-            showToast(`Challenge sent to ${target} for ${goal} pts!`, 3000, "#f9a826");
-            fetchSocialData();
+            showToast(`Challenge sent to ${target} for ${goal} pts!`, 3000, "#f9a826"); fetchSocialData();
         }
-
-        async function respondChallenge(id, response) {
-            await fetch(`${API_URL}/api/social`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: user.username, action: "respond_challenge", payload: {id, response}}) });
-            fetchSocialData();
-        }
-
+        async function respondChallenge(id, response) { await fetch(`${API_URL}/api/social`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: user.username, action: "respond_challenge", payload: {id, response}}) }); fetchSocialData(); }
         async function winChallenge(id) {
             const res = await fetch(`${API_URL}/api/social`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({username: user.username, action: "win_challenge", payload: {id}}) });
             const data = await res.json();
-            if(data.success && data.awarded) {
-                user.guild_coins += 50; updateUI(); syncSave();
-                showToast("🏆 YOU WON THE DUEL! +50 GC", 5000, "#ffd700");
-                fetchSocialData();
-            }
+            if(data.success && data.awarded) { user.guild_coins += 50; updateUI(); syncSave(); showToast("🏆 YOU WON THE DUEL! +50 GC", 5000, "#ffd700"); fetchSocialData(); }
         }
 
         async function syncSave(added_points = 0) {
@@ -377,8 +404,7 @@
                         username: user.username, password_hash: user.password_hash,
                         high_score: user.high_score, equipped_skin: user.equipped_skin,
                         white_shards: user.w_shards, black_shards: user.b_shards,
-                        unlocked_skins: user.unlocked, guild: user.guild, guild_coins: user.guild_coins,
-                        added_points: added_points
+                        unlocked_skins: user.unlocked, guild: user.guild, guild_coins: user.guild_coins, added_points: added_points
                     })
                 });
                 fetchServerData();
@@ -527,7 +553,6 @@
             gameStatus = "fusion"; fusionAngle = 0; fusionSpeed = 0.05; fusionDistance = 150; fusionFlash = 0; document.getElementById("fuseBtn").style.display = "none";
         });
 
-        // Advanced Physics Variables
         const BASE_GRAVITY = 0.45; const BASE_FRICTION = 0.995; const BASE_HOOK_RANGE = 350; 
         let currentGravity = BASE_GRAVITY; let currentFriction = BASE_FRICTION; let maxHookRange = BASE_HOOK_RANGE;
         let bounceMultiplier = 1; let momentumBoost = 0.05; let magnetRadius = 0;
@@ -556,7 +581,7 @@
                 let nextY = Math.floor(Math.random() * 130) + 100; 
                 hooks.push({ x: nextX, y: nextY });
 
-                if (Math.random() < 0.35) bouncers.push({ type: "horizontal", x: nextX - 50, y: 390, width: 65, height: 12 });
+                if (Math.random() < 0.35) bouncers.push({ type: "horizontal", x: nextX - 50, y: 430, width: 65, height: 12 });
                 else if (Math.random() < 0.55) bouncers.push({ type: "vertical", x: nextX - 110, y: nextY + 50, width: 14, height: 80 });
 
                 let eq = user.equipped_skin || "";
@@ -656,10 +681,11 @@
             });
 
             cameraX = player.x - 200;
-            rawDist = Math.max(0, Math.floor(player.x / 10) - 10);
+            // No Math.max(0) so negative scores are possible!
+            rawDist = Math.floor(player.x / 10) - 10;
             
             if (gameStatus === "realm") {
-                document.getElementById("scoreDisplay").textContent = `REALM: ${rawDist} / 1000`;
+                document.getElementById("scoreDisplay").textContent = `REALM: ${Math.max(0, rawDist)} / 1000`;
                 if (rawDist >= 1000) {
                     if (currentRealm === "devil") { user.b_shards++; localStorage.setItem("bs", user.b_shards); showToast("⬛ COLLECTED A BLACK SHARD", 4000, "#000"); } 
                     else if (currentRealm === "angel") { user.w_shards++; localStorage.setItem("ws", user.w_shards); showToast("⬜ COLLECTED A WHITE SHARD", 4000, "#fff"); }
@@ -669,14 +695,10 @@
                 score = rawDist * calculateMultiplier();
                 document.getElementById("scoreDisplay").textContent = score;
 
-                // Challenge Checker
                 if (activeChallenges.length > 0) {
                     for(let i=0; i<activeChallenges.length; i++) {
                         let c = activeChallenges[i];
-                        if (score >= c.goal) {
-                            activeChallenges.splice(i, 1); i--;
-                            winChallenge(c.id);
-                        }
+                        if (score >= c.goal) { activeChallenges.splice(i, 1); i--; winChallenge(c.id); }
                     }
                 }
                 
@@ -694,15 +716,15 @@
                 if (gameStatus === "realm") { showToast("THE REALM HAS REJECTED YOU.", 4000, "#ff0055"); resetGame(); return; }
 
                 gameStatus = "lost";
-                let added = score;
-                if (score > user.high_score) { user.high_score = score; localStorage.setItem("hc", score); }
+                let added = Math.max(0, score);
+                if (score > user.high_score) { user.high_score = score; localStorage.setItem("hc", score); document.getElementById("highScoreDisplay").textContent = score; }
                 if (rawDist > dailyTasks.dist) dailyTasks.dist = rawDist;
                 
-                user.guild_coins += Math.floor(score / 5000); // Earn coins from playing
+                if (added > 0) user.guild_coins += Math.floor(added / 5000); 
 
                 let eq = user.equipped_skin || "";
-                if (rawDist = 0 && !user.unlocked.includes("devil")) { unlockSkin("devil"); showToast("👹 UNLOCKED: THE DEVIL SKIN!", 5000, "#ff0055"); }
-                if (rawDist = 0 && eq.includes("angel") && !user.unlocked.includes("denied_angel")) { unlockSkin("denied_angel"); showToast("🥀 UNLOCKED: DENIED ANGEL", 5000, "#ff0055"); }
+                if (rawDist < 0 && !user.unlocked.includes("devil")) { unlockSkin("devil"); showToast("👹 UNLOCKED: THE DEVIL SKIN!", 5000, "#ff0055"); }
+                if (rawDist < 0 && eq.includes("angel") && !user.unlocked.includes("denied_angel")) { unlockSkin("denied_angel"); showToast("🥀 UNLOCKED: DENIED ANGEL", 5000, "#ff0055"); }
                 
                 if (eq.includes("angel")) {
                     let angelDeaths = parseInt(localStorage.getItem("stickman_angelic_deaths") || "0") + 1; localStorage.setItem("stickman_angelic_deaths", angelDeaths);
@@ -713,7 +735,7 @@
                     if (devilDeaths >= 20 && !user.unlocked.includes("accurate_devil")) { unlockSkin("accurate_devil"); showToast("🎩 UNLOCKED: ACCURATE DEVIL", 5000, "#d4af37"); }
                 }
 
-                updateUI(); syncSave(added);
+                updateUI(); syncSave(added); renderChangingRoom();
             }
         }
 
@@ -828,7 +850,6 @@
                 ctx.beginPath(); ctx.moveTo(player.x + 6, player.y); ctx.quadraticCurveTo(player.x + 25, player.y - 18, player.x + 30, player.y - 5); ctx.quadraticCurveTo(player.x + 20, player.y + 12, player.x + 8, player.y + 4); ctx.fill();
             }
 
-            // GACHA SPLIT SKINS
             if (skinInfo.splitColor) {
                 let cL = skinInfo.color || "#ffffff"; let cR = skinInfo.splitColor || "#000000";
                 ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(flameOffset * 2); 
@@ -874,7 +895,6 @@
                 }
                 ctx.restore();
             } else {
-                // NORMAL SKINS
                 if (gameStatus === "realm") ctx.fillStyle = currentRealm === "devil" ? "#fff" : "#000";
                 else ctx.fillStyle = skinInfo.color;
                 
@@ -950,8 +970,8 @@
             }
         }
 
-        function loop() { update(); draw(); requestAnimationFrame(loop); }
-        updateUI(); fetchServerData(); fetchSocialData(); loop();
+        applySkinAbilities(); spawnEnvironment();
+        function loop() { update(); draw(); requestAnimationFrame(loop); } loop();
     </script>
 </body>
 </html>
